@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: prompt-testing-framework
+  
+  profiles:
+    active: dev
+  
+  datasource:
+    driver-class-name: org.postgresql.Driver
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.promptframework.model.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    '[com.promptframework]': DEBUG
+    '[org.mybatis]': DEBUG

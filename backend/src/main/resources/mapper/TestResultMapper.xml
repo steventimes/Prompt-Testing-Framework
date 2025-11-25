@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.promptframework.mapper.TestResultMapper">
+
+    <resultMap id="TestResultResultMap" type="TestResult">
+        <id property="id" column="id"/>
+        <result property="testRunId" column="test_run_id"/>
+        <result property="inputVariables" column="input_variables" 
+                typeHandler="org.apache.ibatis.type.JsonTypeHandler"/>
+        <result property="aiResponse" column="ai_response"/>
+        <result property="responseTimeMs" column="response_time_ms"/>
+        <result property="tokenCount" column="token_count"/>
+        <result property="costUsd" column="cost_usd"/>
+        <result property="qualityScore" column="quality_score"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="TestResult" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO test_results (
+            test_run_id, input_variables, ai_response, 
+            response_time_ms, token_count, cost_usd, quality_score, created_at
+        )
+        VALUES (
+            #{testRunId}, 
+            #{inputVariables, typeHandler=org.apache.ibatis.type.JsonTypeHandler}::jsonb,
+            #{aiResponse}, 
+            #{responseTimeMs}, 
+            #{tokenCount}, 
+            #{costUsd}, 
+            #{qualityScore},
+            NOW()
+        )
+    </insert>
+
+    <select id="findById" resultMap="TestResultResultMap">
+        SELECT * FROM test_results WHERE id = #{id}
+    </select>
+
+    <select id="findByTestRunId" resultMap="TestResultResultMap">
+        SELECT * FROM test_results 
+        WHERE test_run_id = #{testRunId}
+        ORDER BY created_at ASC
+    </select>
+
+</mapper>

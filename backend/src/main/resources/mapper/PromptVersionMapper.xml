@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.promptframework.mapper.PromptVersionMapper">
+
+    <resultMap id="PromptVersionResultMap" type="PromptVersion">
+        <id property="id" column="id"/>
+        <result property="promptId" column="prompt_id"/>
+        <result property="versionNumber" column="version_number"/>
+        <result property="content" column="content"/>
+        <result property="variables" column="variables" 
+                typeHandler="org.apache.ibatis.type.JsonTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="PromptVersion" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO prompt_versions (prompt_id, version_number, content, variables, created_at)
+        VALUES (
+            #{promptId}, 
+            #{versionNumber}, 
+            #{content}, 
+            #{variables, typeHandler=org.apache.ibatis.type.JsonTypeHandler}::jsonb,
+            NOW()
+        )
+    </insert>
+
+    <select id="findById" resultMap="PromptVersionResultMap">
+        SELECT * FROM prompt_versions WHERE id = #{id}
+    </select>
+
+    <select id="findByPromptId" resultMap="PromptVersionResultMap">
+        SELECT * FROM prompt_versions 
+        WHERE prompt_id = #{promptId}
+        ORDER BY version_number ASC
+    </select>
+
+    <select id="findLatestByPromptId" resultMap="PromptVersionResultMap">
+        SELECT * FROM prompt_versions 
+        WHERE prompt_id = #{promptId}
+        ORDER BY version_number DESC 
+        LIMIT 1
+    </select>
+
+    <select id="getNextVersionNumber" resultType="java.lang.Integer">
+        SELECT COALESCE(MAX(version_number) + 1, 1) 
+        FROM prompt_versions 
+        WHERE prompt_id = #{promptId}
+    </select>
+
+</mapper>

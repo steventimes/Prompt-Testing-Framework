@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.promptframework.mapper.TestRunMapper">
+
+    <resultMap id="TestRunResultMap" type="TestRun">
+        <id property="id" column="id"/>
+        <result property="promptVersionId" column="prompt_version_id"/>
+        <result property="aiProvider" column="ai_provider"/>
+        <result property="modelName" column="model_name"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="TestRun" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO test_runs (prompt_version_id, ai_provider, model_name, started_at, status)
+        VALUES (
+            #{promptVersionId}, 
+            #{aiProvider}, 
+            #{modelName}, 
+            NOW(),
+            #{status}
+        )
+    </insert>
+
+    <select id="findById" resultMap="TestRunResultMap">
+        SELECT * FROM test_runs WHERE id = #{id}
+    </select>
+
+    <select id="findByPromptVersionId" resultMap="TestRunResultMap">
+        SELECT * FROM test_runs 
+        WHERE prompt_version_id = #{promptVersionId}
+        ORDER BY started_at DESC 
+    </select>
+
+    <update id="updateCompletion">
+        UPDATE test_runs
+        SET status = #{status},
+            completed_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
