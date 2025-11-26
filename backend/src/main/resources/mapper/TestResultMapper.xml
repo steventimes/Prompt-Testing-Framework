@@ -7,8 +7,9 @@
     <resultMap id="TestResultResultMap" type="TestResult">
         <id property="id" column="id"/>
         <result property="testRunId" column="test_run_id"/>
-        <result property="inputVariables" column="input_variables" 
-                typeHandler="org.apache.ibatis.type.JsonTypeHandler"/>
+        <!-- <result property="inputVariables" column="input_variables" 
+                jdbcType="OTHER" 
+                javaType="java.util.Map"/> -->
         <result property="aiResponse" column="ai_response"/>
         <result property="responseTimeMs" column="response_time_ms"/>
         <result property="tokenCount" column="token_count"/>
@@ -19,12 +20,11 @@
 
     <insert id="insert" parameterType="TestResult" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO test_results (
-            test_run_id, input_variables, ai_response, 
+            test_run_id, ai_response, 
             response_time_ms, token_count, cost_usd, quality_score, created_at
         )
         VALUES (
             #{testRunId}, 
-            #{inputVariables, typeHandler=org.apache.ibatis.type.JsonTypeHandler}::jsonb,
             #{aiResponse}, 
             #{responseTimeMs}, 
             #{tokenCount}, 

@@ -9,18 +9,18 @@
         <result property="promptId" column="prompt_id"/>
         <result property="versionNumber" column="version_number"/>
         <result property="content" column="content"/>
-        <result property="variables" column="variables" 
-                typeHandler="org.apache.ibatis.type.JsonTypeHandler"/>
+        <!-- <result property="variables" column="variables" 
+                jdbcType="OTHER" 
+                javaType="java.util.Map"/> -->
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <insert id="insert" parameterType="PromptVersion" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO prompt_versions (prompt_id, version_number, content, variables, created_at)
+        INSERT INTO prompt_versions (prompt_id, version_number, content, created_at)
         VALUES (
             #{promptId}, 
             #{versionNumber}, 
             #{content}, 
-            #{variables, typeHandler=org.apache.ibatis.type.JsonTypeHandler}::jsonb,
             NOW()
         )
     </insert>

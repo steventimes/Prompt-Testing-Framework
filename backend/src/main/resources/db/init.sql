@@ -41,3 +41,9 @@ CREATE TABLE test_results (
 CREATE INDEX idx_prompt_versions_prompt_id ON prompt_versions(prompt_id);
 CREATE INDEX idx_test_runs_prompt_version ON test_runs(prompt_version_id);
 CREATE INDEX idx_test_results_test_run ON test_results(test_run_id);
+
+INSERT INTO prompts (name, description) VALUES 
+('Sample Prompt', 'A test prompt for development');
+
+INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES 
+(1, 1, 'You are a helpful assistant. Please help with: {task}');
