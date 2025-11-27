@@ -114,7 +114,9 @@ public class AIExecutionService {
     }
 
     @Data
-    public static class AIResponse {
+    public static class AIResponse implements java.io.Serializable {
+
+        private static final long serialVersionUID = 1L;
 
         private String responseText;
         private Integer responseTimeMs;
