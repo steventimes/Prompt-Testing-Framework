@@ -46,7 +46,7 @@ public class TestRunService {
         testRunMapper.insert(testRun);
 
         List<TestResult> results = new ArrayList<>();
-        for (Map<String, String> variables : request.getTestInputs()) {
+        request.getTestInputs().forEach(variables -> {
             try {
                 TestResult result = executeSingleTest(
                         testRun.getId(),
@@ -59,7 +59,7 @@ public class TestRunService {
             } catch (Exception e) {
                 log.error("Failed to execute test with variables: {}", variables, e);
             }
-        }
+        });
 
         testRunMapper.updateCompletion(testRun.getId(), "COMPLETED");
         testRun.setStatus("COMPLETED");

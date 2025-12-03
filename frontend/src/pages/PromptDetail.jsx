@@ -240,7 +240,7 @@ function PromptDetail() {
                     selectedVersionId === version.id ? 'text-blue-600' : 'text-gray-900'
                   }`}>
                     Version {version.versionNumber}
-                    {selectedVersionId === version.id && ' ✓'}
+                    {selectedVersionId === version.id && ' selected'}
                   </span>
                   <span className="text-base text-gray-500">
                     {new Date(version.createdAt).toLocaleDateString()}
