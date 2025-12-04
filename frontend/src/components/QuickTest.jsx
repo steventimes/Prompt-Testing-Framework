@@ -33,7 +33,7 @@ function QuickTest({ onClose }) {
 
     setTesting(true)
     try {
-      const response = await fetch('http://localhost:8080/api/test-runs/quick-test', {
+      const response = await fetch('http://localhost:8080/api/quick-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
