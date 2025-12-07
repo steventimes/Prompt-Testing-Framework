@@ -48,4 +48,19 @@ public class PromptController {
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(promptService.createNewVersion(id, content));
     }
+
+    @PostMapping("/{id}/versions/named")
+    public ResponseEntity<PromptVersion> createNamedVersion(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String content = body.get("content");
+        String versionName = body.get("versionName"); // used later
+
+        if (content == null || content.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        PromptVersion version = promptService.createNewVersion(id, content);
+        return ResponseEntity.status(HttpStatus.CREATED).body(version);
+    }
 }

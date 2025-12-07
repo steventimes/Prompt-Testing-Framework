@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -151,5 +152,32 @@ public class TestRunService {
         response.setMetrics(metrics);
 
         return response;
+    }
+
+    /**
+     * Get all test runs for a specific prompt version
+     */
+    public List<TestRunResponse> getTestRunsByVersion(Long versionId) {
+        List<TestRun> testRuns = testRunMapper.findByPromptVersionId(versionId);
+
+        return testRuns.stream()
+                .map(testRun -> {
+                    List<TestResult> results = testResultMapper.findByTestRunId(testRun.getId());
+                    TestRunResponse.MetricsSummary metrics = metricsService.calculateMetrics(results);
+
+                    TestRunResponse response = new TestRunResponse();
+                    response.setId(testRun.getId());
+                    response.setPromptVersionId(testRun.getPromptVersionId());
+                    response.setAiProvider(testRun.getAiProvider());
+                    response.setModelName(testRun.getModelName());
+                    response.setStartedAt(testRun.getStartedAt());
+                    response.setCompletedAt(testRun.getCompletedAt());
+                    response.setStatus(testRun.getStatus());
+                    response.setResults(results);
+                    response.setMetrics(metrics);
+
+                    return response;
+                })
+                .collect(Collectors.toList());
     }
 }
