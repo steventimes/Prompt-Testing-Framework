@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Plus, Settings, MessageSquare, Terminal } from 'lucide-react'
 import QuickTest from '../components/QuickTest'
+import SettingsModal from '../components/SettingsModal'
 
 function Home() {
   const [prompts, setPrompts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showQuickTest, setShowQuickTest] = useState(false)
+  const [showSettings, setShowSettings] = useState(false) // New State
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -24,78 +27,112 @@ function Home() {
   if (loading) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading prompts...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-xl text-gray-600 font-medium">Loading workspace...</div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-transparent py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      {/* Settings Modal */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-10 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Prompt Testing Framework
+            <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">
+              Prompt Testing <span className="text-blue-600">Framework</span>
             </h1>
-            <p className="text-gray-700 text-base">
-              Test and compare AI prompt performance
-            </p>
+            <p className="text-gray-500 text-lg">Manage, version, and evaluate your AI prompts</p>
           </div>
           <div className="flex gap-3">
+            {/* Settings Button */}
+            <button 
+               onClick={() => setShowSettings(true)}
+               className="p-3 bg-white border border-gray-200 rounded-xl hover:shadow-md transition-all text-gray-600 hover:text-blue-600"
+               title="API Settings"
+             >
+               <Settings className="w-6 h-6" />
+             </button>
+
             <button 
               onClick={() => setShowQuickTest(!showQuickTest)}
-              className={`px-6 py-3 rounded-lg transition-all duration-300 text-lg font-medium
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl border transition-all font-medium
                 ${showQuickTest 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-inner' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:shadow-md'}`}
             >
-              {showQuickTest ? '✕ Close Quick Test' : '⚡ Quick Test'}
+              <Terminal className="w-5 h-5" />
+              {showQuickTest ? 'Close Playground' : 'Quick Playground'}
             </button>
             <button 
               onClick={() => navigate('/create')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-medium"
+              className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg hover:shadow-blue-200 transition-all font-medium"
             >
-              + New Prompt
+              <Plus className="w-5 h-5" />
+              New Prompt
             </button>
           </div>
         </div>
 
-        {/* Quick Test Section */}
-        <div className={`transition-all duration-500 overflow-hidden mb-6
-          ${showQuickTest ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
+        {/* Quick Test Expandable Area */}
+        <div className={`transition-all duration-500 ease-in-out overflow-hidden mb-8
+          ${showQuickTest ? 'max-h-[800px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'}`}
         >
-          <QuickTest onClose={() => setShowQuickTest(false)} />
+          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 p-1">
+            <QuickTest onClose={() => setShowQuickTest(false)} />
+          </div>
         </div>
 
         {/* Prompts List */}
         <div className={`transition-all duration-500
-          ${showQuickTest ? 'opacity-50 blur-sm pointer-events-none' : 'opacity-100'}`}
+          ${showQuickTest ? 'opacity-50 blur-[1px]' : 'opacity-100'}`}
         >
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Your Prompts ({prompts.length})
+          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-gray-400" />
+            Your Prompt Library <span className="text-gray-400 font-normal">({prompts.length})</span>
           </h2>
-          <div className="space-y-4">
-            {prompts.map(prompt => (
-              <div 
-                key={prompt.id}
-                onClick={() => navigate(`/prompt/${prompt.id}`)}
-                className="bg-white rounded-lg shadow-md border-2 border-gray-100 p-6 
-                           hover:shadow-xl hover:scale-105 hover:border-blue-500 hover:bg-blue-50 
-                           transition-all duration-200 cursor-pointer"
-              >
-                <h3 className="text-2xl font-semibold text-gray-900 mb-3">
-                  {prompt.name}
-                </h3>
-                <p className="text-gray-700 mb-4 text-base">
-                  {prompt.description || 'No description provided'}
-                </p>
-                <div className="text-base text-gray-500">
-                  Created: {new Date(prompt.createdAt).toLocaleDateString()}
-                </div>
+          
+          <div className="grid gap-5">
+            {prompts.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                <p className="text-gray-500 text-lg mb-4">No prompts created yet.</p>
+                <button onClick={() => navigate('/create')} className="text-blue-600 font-medium hover:underline">
+                  Create your first prompt
+                </button>
               </div>
-            ))}
+            ) : (
+              prompts.map(prompt => (
+                <div 
+                  key={prompt.id}
+                  onClick={() => navigate(`/prompt/${prompt.id}`)}
+                  className="group bg-white rounded-xl shadow-sm border border-gray-200 p-6 
+                             hover:shadow-md hover:border-blue-300 
+                             transition-all duration-200 cursor-pointer relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+                      Open
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {prompt.name}
+                  </h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">
+                    {prompt.description || 'No description provided'}
+                  </p>
+                  <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <span>Created: {new Date(prompt.createdAt).toLocaleDateString()}</span>
+                    <span>•</span>
+                    <span>{prompt.versions ? prompt.versions.length : 0} Versions</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
