@@ -6,8 +6,7 @@ import {
   BarChart3, Database, Split, Download 
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+import { buildApiUrl } from '../lib/api'
 
 function PromptDetail() {
   const { id } = useParams()
@@ -25,7 +24,7 @@ function PromptDetail() {
 
   const fetchPrompt = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/prompts/${id}`)
+      const response = await fetch(buildApiUrl(`/prompts/${id}`))
       if (!response.ok) throw new Error('Failed to load prompt')
       const data = await response.json()
       setPrompt(data)
@@ -46,7 +45,7 @@ function PromptDetail() {
   const fetchHistory = useCallback(async (versionId) => {
     if (!versionId) return
     try {
-      const response = await fetch(`${API_BASE}/test-runs/version/${versionId}`)
+      const response = await fetch(buildApiUrl(`/test-runs/version/${versionId}`))
       if (response.ok) {
         const data = await response.json()
         setTestHistory(data)
@@ -97,14 +96,14 @@ function PromptDetail() {
     if (!newVersionContent.trim()) return
     setIsCreatingVersion(true)
     try {
-      const response = await fetch(`${API_BASE}/prompts/${id}/versions`, {
+      const response = await fetch(buildApiUrl(`/prompts/${id}/versions`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newVersionContent })
       })
       if (response.ok) {
         toast.success('New version saved!')
-        const updatedPromptRes = await fetch(`${API_BASE}/prompts/${id}`)
+        const updatedPromptRes = await fetch(buildApiUrl(`/prompts/${id}`))
         const updatedPrompt = await updatedPromptRes.json()
         setPrompt(updatedPrompt)
         
@@ -128,7 +127,7 @@ function PromptDetail() {
     try {
         const formattedInputs = testInputs.map(input => ({ question: input.question }))
         
-        const response = await fetch(`${API_BASE}/test-runs`, {
+        const response = await fetch(buildApiUrl('/test-runs'), {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',

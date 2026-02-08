@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Split, Zap, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Split } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { buildApiUrl } from '../lib/api'
 
 function CompareVersions() {
   const { id } = useParams() 
@@ -17,7 +18,7 @@ function CompareVersions() {
   const [resultB, setResultB] = useState(null)
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/prompts/${id}`)
+    fetch(buildApiUrl(`/prompts/${id}`))
       .then(r => r.json())
       .then(data => {
         setPrompt(data)
@@ -40,7 +41,7 @@ function CompareVersions() {
     const apiKey = localStorage.getItem('openai_api_key')
 
     const runOne = async (versionId) => {
-        const res = await fetch('http://localhost:8080/api/test-runs', {
+        const res = await fetch(buildApiUrl('/test-runs'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey || '' },
             body: JSON.stringify({

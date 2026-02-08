@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Settings, MessageSquare, Terminal } from 'lucide-react'
 import QuickTest from '../components/QuickTest'
 import SettingsModal from '../components/SettingsModal'
+import { buildApiUrl } from '../lib/api'
 
 function Home() {
   const [prompts, setPrompts] = useState([])
@@ -12,7 +13,7 @@ function Home() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/prompts')
+    fetch(buildApiUrl('/prompts'))
       .then(response => response.json())
       .then(data => {
         setPrompts(data)

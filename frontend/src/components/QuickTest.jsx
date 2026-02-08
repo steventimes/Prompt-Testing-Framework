@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Play, Loader2, Plus, Trash2, Zap, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { buildApiUrl } from '../lib/api'
 
 function QuickTest({ onClose }) {
   const [promptContent, setPromptContent] = useState('')
@@ -40,7 +41,7 @@ function QuickTest({ onClose }) {
     try {
       const formattedInputs = testInputs.map(input => ({ question: input.question }))
 
-      const response = await fetch('http://localhost:8080/api/quick-test', {
+      const response = await fetch(buildApiUrl('/quick-test'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
