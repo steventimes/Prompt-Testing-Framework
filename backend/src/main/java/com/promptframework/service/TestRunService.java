@@ -67,11 +67,18 @@ public class TestRunService {
 
         testRunMapper.updateCompletion(testRun.getId(), "COMPLETED");
 
-        return buildResponse(testRun, results);
+        TestRun completedRun = testRunMapper.findById(testRun.getId());
+        if (completedRun == null) {
+            throw new RuntimeException("Test run not found after completion: " + testRun.getId());
+        }
+        return buildResponse(completedRun, results);
     }
 
     public TestRunResponse getTestRun(Long id) {
         TestRun testRun = testRunMapper.findById(id);
+        if (testRun == null) {
+            throw new RuntimeException("Test run not found: " + id);
+        }
         List<TestResult> results = testResultMapper.findByTestRunId(id);
         return buildResponse(testRun, results);
     }
