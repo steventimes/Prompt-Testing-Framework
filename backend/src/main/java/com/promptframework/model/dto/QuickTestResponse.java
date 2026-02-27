@@ -21,5 +21,7 @@ public class QuickTestResponse {
         private Double averageQualityScore;
         private Integer totalTokens;
         private Double totalCostUsd;
+        private Double averagePrivacyRiskScore;
+        private Integer totalPrivacyFindings;
     }
 }

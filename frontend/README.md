@@ -1,16 +1,73 @@
-# React + Vite
+# Prompt Testing Framework Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite front end for building and evaluating prompt versions.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm ci
+npm run dev
+```
 
-## React Compiler
+## Build for deployment (mock mode)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The project is now deploy-friendly by default for demos:
 
-## Expanding the ESLint configuration
+- `VITE_USE_MOCK=true` enables in-browser mock API mode.
+- No backend is required when mock mode is on.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+VITE_USE_MOCK=true npm run build
+npm run preview
+```
+
+## User history persistence
+
+The app now keeps test history alive for the active browser tab using `sessionStorage`:
+
+- Quick Playground session history persists until the tab/browser is closed.
+- Prompt detail input/model/result state persists until the tab/browser is closed.
+
+## GitHub Pages deployment workflow
+
+A workflow exists at `.github/workflows/deploy-frontend.yml`.
+
+### What it does
+
+1. Installs dependencies from `frontend/package-lock.json`.
+2. Builds the front end in **mock mode** (`VITE_USE_MOCK=true`).
+3. Publishes `frontend/dist` to GitHub Pages.
+
+### How to deploy
+
+1. In GitHub, enable **Pages** and set source to **GitHub Actions**.
+2. Push changes to `main` (or manually run **Deploy Frontend (Mock Mode)** from Actions).
+3. Open the generated Pages URL from the workflow output.
+
+> Note: `VITE_BASE_PATH` is set for this repository path (`/Prompt-Testing-Framework/`) in the workflow.
+
+
+## QA-style test suite for larger codebase integration
+
+A QA-authored regression suite is included:
+
+- `frontend/tests/qa/frontend-regression-suite.md` (test matrix + detailed cases)
+- `frontend/tests/qa/mock-mode-smoke.feature` (gherkin scenarios for BDD pipelines)
+
+These are structured to plug into enterprise QA processes (entry/exit criteria, priority labels, case IDs, and reproducible steps).
+
+
+## Property-based testing (available here)
+
+Yes — lightweight property-based tests are now integrated without additional external dependencies.
+
+- Test file: `frontend/tests/property/mockMath.property.test.mjs`
+- Command: `npm run test:property`
+- Runtime: Node built-in test runner (`node:test`)
+
+Current properties validated:
+- `ensureLeadingSlash` always returns a leading slash while preserving path content.
+- `clamp` always returns values inside provided bounds.
+- `average` always stays between min/max of input values and returns `0` for empty lists.
+
+This is intentionally CI-friendly and can be extended later to fast-check/Jest/Vitest once package policy allows installing new libraries.

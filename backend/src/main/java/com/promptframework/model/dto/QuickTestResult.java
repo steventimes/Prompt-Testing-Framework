@@ -2,6 +2,7 @@ package com.promptframework.model.dto;
 
 import lombok.Data;
 import java.util.Map;
+import java.util.List;
 
 @Data
 public class QuickTestResult {
@@ -12,4 +13,6 @@ public class QuickTestResult {
     private Integer tokenCount;
     private Double costUsd;
     private Double qualityScore;
+    private List<McpToolCall> mcpCalls;
+    private PrivacySummary privacySummary;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { buildApiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 function CreatePrompt() {
   const navigate = useNavigate()
@@ -40,7 +40,7 @@ function CreatePrompt() {
 
     setCreating(true)
     try {
-      const response = await fetch(buildApiUrl('/prompts'), {
+      const response = await apiFetch('/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

@@ -1,5 +1,8 @@
 package com.promptframework.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -8,6 +11,9 @@ import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import com.promptframework.model.dto.McpToolCall;
+import com.promptframework.model.dto.PrivacySummary;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -53,6 +59,9 @@ public class AIExecutionService {
             // Mock scoring
             response.setQualityScore(0.7 + (random.nextDouble() * 0.2));
         }
+
+        response.setMcpCalls(generateMcpCalls(promptContent, variables));
+        response.setPrivacySummary(evaluatePrivacy(promptContent, variables, response.getResponseText()));
 
         return response;
     }
@@ -148,6 +157,62 @@ public class AIExecutionService {
         return res;
     }
 
+    private List<McpToolCall> generateMcpCalls(String promptContent, Map<String, String> variables) {
+        List<McpToolCall> calls = new ArrayList<>();
+        calls.add(new McpToolCall("mcp.prompt.resolve", 12, "ok", "prompt-template"));
+        if (variables != null && !variables.isEmpty()) {
+            calls.add(new McpToolCall("mcp.variable.expand", 9, "ok", "inputs"));
+        }
+
+        String lowerPrompt = promptContent == null ? "" : promptContent.toLowerCase(Locale.ROOT);
+        if (lowerPrompt.contains("http") || lowerPrompt.contains("url") || lowerPrompt.contains("browse")) {
+            calls.add(new McpToolCall("mcp.http.fetch", 120, "skipped", "external-url"));
+        }
+        return calls;
+    }
+
+    private PrivacySummary evaluatePrivacy(String promptContent, Map<String, String> variables, String responseText) {
+        StringBuilder combined = new StringBuilder();
+        if (promptContent != null) {
+            combined.append(promptContent).append(" ");
+        }
+        if (variables != null) {
+            variables.values().forEach(value -> combined.append(value).append(" "));
+        }
+        if (responseText != null) {
+            combined.append(responseText);
+        }
+
+        List<String> flags = new ArrayList<>();
+        double score = 0.0;
+
+        if (Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", Pattern.CASE_INSENSITIVE)
+                .matcher(combined).find()) {
+            flags.add("email");
+            score += 0.2;
+        }
+        if (Pattern.compile("\\b\\d{3}-\\d{2}-\\d{4}\\b").matcher(combined).find()) {
+            flags.add("ssn");
+            score += 0.5;
+        }
+        if (Pattern.compile("\\b(?:\\d[ -]*?){13,16}\\b").matcher(combined).find()) {
+            flags.add("credit-card");
+            score += 0.5;
+        }
+        if (Pattern.compile("\\b(?:\\+?\\d{1,2}[-.\\s]?)?(?:\\(\\d{3}\\)|\\d{3})[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b")
+                .matcher(combined).find()) {
+            flags.add("phone");
+            score += 0.2;
+        }
+        if (Pattern.compile("\\bsk-[A-Za-z0-9]{10,}\\b").matcher(combined).find()) {
+            flags.add("api-key");
+            score += 0.6;
+        }
+
+        score = Math.min(score, 1.0);
+        return new PrivacySummary(score, flags);
+    }
+
     @Data
     public static class AIResponse implements java.io.Serializable {
 
@@ -159,5 +224,7 @@ public class AIExecutionService {
         private String provider;
         private String model;
         private boolean mock;
+        private List<McpToolCall> mcpCalls;
+        private PrivacySummary privacySummary;
     }
 }

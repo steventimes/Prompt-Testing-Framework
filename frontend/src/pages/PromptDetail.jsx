@@ -6,7 +6,7 @@ import {
   BarChart3, Database, Split, Download 
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { buildApiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 function PromptDetail() {
   const { id } = useParams()
@@ -21,10 +21,38 @@ function PromptDetail() {
   const [testHistory, setTestHistory] = useState([])
   const [newVersionContent, setNewVersionContent] = useState('')
   const [isCreatingVersion, setIsCreatingVersion] = useState(false)
+  const sessionKey = `ptf_prompt_session_${id}`
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(sessionKey)
+    if (!raw) return
+
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed.testInputs) setTestInputs(parsed.testInputs)
+      if (parsed.modelName) setModelName(parsed.modelName)
+      if (parsed.selectedVersionId) setSelectedVersionId(parsed.selectedVersionId)
+      if (parsed.currentResult) setCurrentResult(parsed.currentResult)
+    } catch (error) {
+      console.error('Unable to restore prompt session', error)
+    }
+  }, [sessionKey])
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      sessionKey,
+      JSON.stringify({
+        selectedVersionId,
+        testInputs,
+        modelName,
+        currentResult,
+      }),
+    )
+  }, [currentResult, modelName, selectedVersionId, sessionKey, testInputs])
 
   const fetchPrompt = useCallback(async () => {
     try {
-      const response = await fetch(buildApiUrl(`/prompts/${id}`))
+      const response = await apiFetch(`/prompts/${id}`)
       if (!response.ok) throw new Error('Failed to load prompt')
       const data = await response.json()
       setPrompt(data)
@@ -45,7 +73,7 @@ function PromptDetail() {
   const fetchHistory = useCallback(async (versionId) => {
     if (!versionId) return
     try {
-      const response = await fetch(buildApiUrl(`/test-runs/version/${versionId}`))
+      const response = await apiFetch(`/test-runs/version/${versionId}`)
       if (response.ok) {
         const data = await response.json()
         setTestHistory(data)
@@ -96,14 +124,14 @@ function PromptDetail() {
     if (!newVersionContent.trim()) return
     setIsCreatingVersion(true)
     try {
-      const response = await fetch(buildApiUrl(`/prompts/${id}/versions`), {
+      const response = await apiFetch(`/prompts/${id}/versions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newVersionContent })
       })
       if (response.ok) {
         toast.success('New version saved!')
-        const updatedPromptRes = await fetch(buildApiUrl(`/prompts/${id}`))
+        const updatedPromptRes = await apiFetch(`/prompts/${id}`)
         const updatedPrompt = await updatedPromptRes.json()
         setPrompt(updatedPrompt)
         
@@ -127,7 +155,7 @@ function PromptDetail() {
     try {
         const formattedInputs = testInputs.map(input => ({ question: input.question }))
         
-        const response = await fetch(buildApiUrl('/test-runs'), {
+        const response = await apiFetch('/test-runs', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',

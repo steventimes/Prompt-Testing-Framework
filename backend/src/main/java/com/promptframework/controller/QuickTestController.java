@@ -57,6 +57,8 @@ public class QuickTestController {
                 result.setTokenCount(aiResponse.getTokenCount());
                 result.setCostUsd(aiResponse.getCostUsd());
                 result.setQualityScore(calculateScore(aiResponse));
+                result.setMcpCalls(aiResponse.getMcpCalls());
+                result.setPrivacySummary(aiResponse.getPrivacySummary());
 
                 results.add(result);
 
@@ -92,7 +94,7 @@ public class QuickTestController {
 
     private QuickTestResponse.MetricsSummary calculateMetrics(List<QuickTestResult> results) {
         if (results.isEmpty()) {
-            return new QuickTestResponse.MetricsSummary(0.0, 0.0, 0, 0.0);
+            return new QuickTestResponse.MetricsSummary(0.0, 0.0, 0, 0.0, 0.0, 0);
         }
 
         double avgResponseTime = results.stream()
@@ -113,6 +115,20 @@ public class QuickTestController {
                 .mapToDouble(QuickTestResult::getCostUsd)
                 .sum();
 
-        return new QuickTestResponse.MetricsSummary(avgResponseTime, avgQuality, totalTokens, totalCost);
+        double avgPrivacyRisk = results.stream()
+                .map(QuickTestResult::getPrivacySummary)
+                .filter(summary -> summary != null && summary.getRiskScore() != null)
+                .mapToDouble(summary -> summary.getRiskScore())
+                .average()
+                .orElse(0.0);
+
+        int totalPrivacyFindings = results.stream()
+                .map(QuickTestResult::getPrivacySummary)
+                .filter(summary -> summary != null && summary.getFlags() != null)
+                .mapToInt(summary -> summary.getFlags().size())
+                .sum();
+
+        return new QuickTestResponse.MetricsSummary(avgResponseTime, avgQuality, totalTokens, totalCost,
+                avgPrivacyRisk, totalPrivacyFindings);
     }
 }
