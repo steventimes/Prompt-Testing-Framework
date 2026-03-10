@@ -46,28 +46,26 @@ A workflow exists at `.github/workflows/deploy-frontend.yml`.
 
 > Note: `VITE_BASE_PATH` is set for this repository path (`/Prompt-Testing-Framework/`) in the workflow.
 
+## Reliability test architecture
 
-## QA-style test suite for larger codebase integration
+### Commands
 
-A QA-authored regression suite is included:
+```bash
+npm run test:sanity
+npm run test:unit
+npm run test:fuzz
+npm run test:property
+npm run test:integration
+npm run test:model
+npm run test:all
+npm run test:coverage
+```
 
-- `frontend/tests/qa/frontend-regression-suite.md` (test matrix + detailed cases)
-- `frontend/tests/qa/mock-mode-smoke.feature` (gherkin scenarios for BDD pipelines)
+For release readiness, run:
 
-These are structured to plug into enterprise QA processes (entry/exit criteria, priority labels, case IDs, and reproducible steps).
-
-
-## Property-based testing (available here)
-
-Yes — lightweight property-based tests are now integrated without additional external dependencies.
-
-- Test file: `frontend/tests/property/mockMath.property.test.mjs`
-- Command: `npm run test:property`
-- Runtime: Node built-in test runner (`node:test`)
-
-Current properties validated:
-- `ensureLeadingSlash` always returns a leading slash while preserving path content.
-- `clamp` always returns values inside provided bounds.
-- `average` always stays between min/max of input values and returns `0` for empty lists.
-
-This is intentionally CI-friendly and can be extended later to fast-check/Jest/Vitest once package policy allows installing new libraries.
+```bash
+npm run lint
+npm run test:all
+npm run test:coverage
+npm run build
+```

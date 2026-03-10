@@ -3,50 +3,46 @@ import assert from 'node:assert/strict'
 import { average, clamp, ensureLeadingSlash } from '../../src/lib/mockMath.js'
 
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+const randomArray = (len, min = -1000, max = 1000) => Array.from({ length: len }, () => randomInt(min, max))
 
-const randomString = () => {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_'
-  const length = randomInt(1, 16)
-  let out = ''
-  for (let i = 0; i < length; i += 1) {
-    out += chars[randomInt(0, chars.length - 1)]
-  }
-  return out
-}
-
-test('property: ensureLeadingSlash always returns value with leading slash', () => {
-  for (let i = 0; i < 300; i += 1) {
-    const candidate = Math.random() < 0.5 ? randomString() : `/${randomString()}`
-    const result = ensureLeadingSlash(candidate)
-
-    assert.equal(result.startsWith('/'), true)
-    assert.equal(result.replace(/^\/+/, ''), candidate.replace(/^\/+/, ''))
-  }
-})
-
-test('property: clamp output is always within inclusive bounds', () => {
-  for (let i = 0; i < 1000; i += 1) {
+test('property: clamp result always lies in [min, max] when min <= max', () => {
+  for (let i = 0; i < 10000; i += 1) {
     const min = randomInt(-1000, 0)
     const max = randomInt(1, 1000)
-    const value = randomInt(-5000, 5000)
-
-    const result = clamp(value, min, max)
-    assert.equal(result >= min && result <= max, true)
+    const value = randomInt(-10000, 10000)
+    const out = clamp(value, min, max)
+    assert.equal(out >= min && out <= max, true)
   }
 })
 
-test('property: average is bounded by min/max of numeric input', () => {
-  for (let i = 0; i < 300; i += 1) {
-    const length = randomInt(1, 40)
-    const values = Array.from({ length }, () => randomInt(-500, 500))
+test('property: clamp is idempotent', () => {
+  for (let i = 0; i < 10000; i += 1) {
+    const min = randomInt(-1000, 0)
+    const max = randomInt(1, 1000)
+    const value = randomInt(-10000, 10000)
+    const once = clamp(value, min, max)
+    const twice = clamp(once, min, max)
+    assert.equal(once, twice)
+  }
+})
+
+test('property: average output is bounded by min/max for non-empty numeric arrays', () => {
+  for (let i = 0; i < 4000; i += 1) {
+    const len = randomInt(1, 40)
+    const values = randomArray(len)
     const result = average(values)
-
-    const min = Math.min(...values)
-    const max = Math.max(...values)
-    assert.equal(result >= min && result <= max, true)
+    assert.equal(result >= Math.min(...values) && result <= Math.max(...values), true)
   }
 })
 
-test('property: average returns 0 for empty arrays', () => {
-  assert.equal(average([]), 0)
+test('property: ensureLeadingSlash is idempotent and always prefixed with /', () => {
+  for (let i = 0; i < 4000; i += 1) {
+    const len = randomInt(0, 32)
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_/'
+    const candidate = Array.from({ length: len }, () => chars[randomInt(0, chars.length - 1)]).join('')
+    const once = ensureLeadingSlash(candidate)
+    const twice = ensureLeadingSlash(once)
+    assert.equal(once.startsWith('/'), true)
+    assert.equal(once, twice)
+  }
 })

@@ -8,7 +8,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:property": "node --test tests/property/*.test.mjs"
+    "test:property": "node --test tests/property/*.test.mjs",
+    "test:sanity": "node --test tests/sanity/*.test.mjs",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:fuzz": "node --test tests/fuzz/*.test.mjs",
+    "test:integration": "node --test tests/integration/*.test.mjs",
+    "test:model": "node --test tests/model/*.test.mjs",
+    "test:all": "node --test tests/sanity/*.test.mjs tests/unit/*.test.mjs tests/fuzz/*.test.mjs tests/property/*.test.mjs tests/integration/*.test.mjs tests/model/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage tests/sanity/*.test.mjs tests/unit/*.test.mjs tests/fuzz/*.test.mjs tests/property/*.test.mjs tests/integration/*.test.mjs tests/model/*.test.mjs"
   },
   "dependencies": {
     "axios": "^1.13.2",
