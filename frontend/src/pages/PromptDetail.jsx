@@ -150,7 +150,6 @@ function PromptDetail() {
     setTesting(true)
     setCurrentResult(null)
 
-    const apiKey = localStorage.getItem('openai_api_key') || ''
     
     try {
         const formattedInputs = testInputs.map(input => ({ question: input.question }))
@@ -159,7 +158,6 @@ function PromptDetail() {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'X-API-KEY': apiKey 
             },
             body: JSON.stringify({
                 promptVersionId: selectedVersionId,

@@ -32,7 +32,7 @@ public class TestRunService {
     private final MetricsService metricsService;
 
     @Transactional
-    public TestRunResponse executeTest(TestRunRequest request, String apiKey) {
+    public TestRunResponse executeTest(TestRunRequest request) {
         PromptVersion promptVersion = promptService.getVersion(request.getPromptVersionId());
 
         TestRun testRun = new TestRun();
@@ -49,8 +49,7 @@ public class TestRunService {
                     promptVersion.getContent(),
                     inputs,
                     request.getAiProvider(),
-                    request.getModelName(),
-                    apiKey
+                    request.getModelName()
             );
 
             TestResult result = new TestResult();

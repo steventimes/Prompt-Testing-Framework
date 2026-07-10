@@ -48,8 +48,6 @@ function QuickTest({ onClose }) {
     setTesting(true)
     setResults(null)
 
-    const apiKey = localStorage.getItem('openai_api_key') || ''
-
     try {
       const formattedInputs = testInputs.map((input) => ({ question: input.question }))
 
@@ -57,7 +55,6 @@ function QuickTest({ onClose }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': apiKey,
         },
         body: JSON.stringify({
           promptContent,

@@ -17,7 +17,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/prompts")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class PromptController {
 
     private final PromptService promptService;

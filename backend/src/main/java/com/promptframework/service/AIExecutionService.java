@@ -16,7 +16,6 @@ import com.promptframework.model.dto.McpToolCall;
 import com.promptframework.model.dto.PrivacySummary;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,23 +36,21 @@ public class AIExecutionService {
      * (LLM-as-a-Judge).
      */
     public AIResponse execute(String promptContent, Map<String, String> variables,
-            String aiProvider, String modelName, String apiKeyOverride) {
+            String aiProvider, String modelName) {
 
         boolean shouldMock = globalMockMode;
-        if (apiKeyOverride != null && !apiKeyOverride.isBlank()) {
-            shouldMock = false;
-        } else if (globalChatModel.isEmpty() && (apiKeyOverride == null || apiKeyOverride.isBlank())) {
+        if (globalChatModel.isEmpty()) {
             shouldMock = true;
         }
         AIResponse response;
         if (shouldMock) {
             response = executeMock(promptContent, variables, aiProvider, modelName);
         } else {
-            response = executeReal(promptContent, variables, aiProvider, modelName, apiKeyOverride);
+            response = executeReal(promptContent, variables, aiProvider, modelName);
         }
 
         if (!shouldMock && response.getResponseText() != null) {
-            double qualityScore = evaluateQuality(promptContent, response.getResponseText(), apiKeyOverride);
+            double qualityScore = evaluateQuality(promptContent, response.getResponseText());
             response.setQualityScore(qualityScore);
         } else {
             // Mock scoring
@@ -67,10 +64,10 @@ public class AIExecutionService {
     }
 
     private AIResponse executeReal(String promptContent, Map<String, String> variables,
-            String provider, String modelName, String apiKeyOverride) {
+            String provider, String modelName) {
 
         String finalPrompt = resolveVariables(promptContent, variables);
-        ChatLanguageModel modelToUse = buildModel(modelName, apiKeyOverride);
+        ChatLanguageModel modelToUse = configuredModel();
 
         long startTime = System.currentTimeMillis();
         String responseText;
@@ -99,9 +96,9 @@ public class AIExecutionService {
     /**
      * "LLM-as-a-Judge": Uses a cheaper model to grade the output.
      */
-    private double evaluateQuality(String originalPrompt, String aiOutput, String apiKeyOverride) {
+    private double evaluateQuality(String originalPrompt, String aiOutput) {
         try {
-            ChatLanguageModel judgeModel = buildModel("gpt-3.5-turbo", apiKeyOverride);
+            ChatLanguageModel judgeModel = configuredModel();
 
             String gradingPrompt = String.format("""
                                                  You are an AI Quality Judge. Rate the following AI response on a scale of 0.0 to 1.0 based on helpfulness, clarity, and adherence to instructions.
@@ -126,10 +123,7 @@ public class AIExecutionService {
         }
     }
 
-    private ChatLanguageModel buildModel(String modelName, String apiKeyOverride) {
-        if (apiKeyOverride != null && !apiKeyOverride.isBlank()) {
-            return OpenAiChatModel.builder().apiKey(apiKeyOverride).modelName(modelName).build();
-        }
+    private ChatLanguageModel configuredModel() {
         return globalChatModel.orElseThrow(() -> new RuntimeException("No API Key"));
     }
 

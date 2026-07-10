@@ -1,4 +1,5 @@
 import { average, clamp, ensureLeadingSlash } from './mockMath'
+import { summarizeWorkspace } from './workspaceAnalytics'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 const MOCK_MODE = import.meta.env.VITE_USE_MOCK !== 'false'
@@ -28,12 +29,48 @@ const seededPrompts = [
       {
         id: 11,
         versionNumber: 1,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
         content: 'You are a helpful support assistant. Answer clearly and ask one follow-up question.',
       },
       {
         id: 12,
         versionNumber: 2,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
         content: 'You are an expert support assistant. Diagnose root cause, provide steps, and include confidence.',
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: 'Invoice Exception Triage',
+    description: 'Classifies finance exceptions and drafts concise next-step recommendations for operators.',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18).toISOString(),
+    versions: [
+      {
+        id: 21,
+        versionNumber: 1,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18).toISOString(),
+        content: 'Classify the invoice exception by risk, explain the likely cause, and propose the next action.',
+      },
+      {
+        id: 22,
+        versionNumber: 2,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 16).toISOString(),
+        content: 'Act as a finance operations reviewer. Return severity, root cause hypothesis, and action owner.',
+      },
+    ],
+  },
+  {
+    id: 3,
+    name: 'Sales Call Summarizer',
+    description: '',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+    versions: [
+      {
+        id: 31,
+        versionNumber: 1,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+        content: 'Summarize the sales call transcript into pain points, objections, and next steps.',
       },
     ],
   },
@@ -84,6 +121,10 @@ const mockFetch = async (path, options = {}) => {
   const body = options.body ? JSON.parse(options.body) : undefined
   const prompts = readStorage(PROMPTS_KEY, [], localStorage)
   const testRuns = readStorage(TEST_RUNS_KEY, [], sessionStorage)
+
+  if (path === '/workspace/summary' && method === 'GET') {
+    return createResponse(summarizeWorkspace(prompts))
+  }
 
   if (path === '/prompts' && method === 'GET') {
     return createResponse(prompts)

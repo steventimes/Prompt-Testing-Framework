@@ -38,12 +38,10 @@ function CompareVersions() {
     setResultA(null) 
     setResultB(null)
     
-    const apiKey = localStorage.getItem('openai_api_key')
-
     const runOne = async (versionId) => {
         const res = await apiFetch('/test-runs', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey || '' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 promptVersionId: versionId,
                 aiProvider: 'openai',

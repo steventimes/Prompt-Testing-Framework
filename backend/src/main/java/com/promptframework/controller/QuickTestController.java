@@ -5,10 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/quick-test")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Slf4j
 public class QuickTestController {
 
@@ -32,8 +29,7 @@ public class QuickTestController {
 
     @PostMapping
     public ResponseEntity<QuickTestResponse> quickTest(
-            @Valid @RequestBody QuickTestRequest request,
-            @RequestHeader(value = "X-API-KEY", required = false) String apiKey) {
+            @Valid @RequestBody QuickTestRequest request) {
 
         log.info("Running quick test with provider: {}, model: {}",
                 request.getAiProvider(), request.getModelName());
@@ -46,8 +42,7 @@ public class QuickTestController {
                         request.getPromptContent(),
                         variables,
                         request.getAiProvider(),
-                        request.getModelName(),
-                        apiKey
+                        request.getModelName()
                 );
 
                 QuickTestResult result = new QuickTestResult();
