@@ -9,9 +9,6 @@
         <result property="promptId" column="prompt_id"/>
         <result property="versionNumber" column="version_number"/>
         <result property="content" column="content"/>
-        <!-- <result property="variables" column="variables" 
-                jdbcType="OTHER" 
-                javaType="java.util.Map"/> -->
         <result property="createdAt" column="created_at"/>
     </resultMap>
 

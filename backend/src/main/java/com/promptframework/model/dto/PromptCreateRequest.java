@@ -15,5 +15,6 @@ public class PromptCreateRequest {
     private String description;
 
     @NotBlank(message = "Initial prompt is required")
+    @Size(max = 100000, message = "Initial prompt is too large")
     private String initialContent;
 }

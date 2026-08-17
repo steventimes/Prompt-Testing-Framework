@@ -1,252 +1,105 @@
-import { average, clamp, ensureLeadingSlash } from './mockMath'
-import { summarizeWorkspace } from './workspaceAnalytics'
+import { ApiError, createApiError } from './apiContract.js'
+import { createMockApi } from './mockApi.js'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
-const MOCK_MODE = import.meta.env.VITE_USE_MOCK !== 'false'
+const env = import.meta.env ?? {}
+const API_BASE = (env.VITE_API_BASE_URL || 'http://localhost:8080/api').replace(/\/$/, '')
+const MOCK_MODE = env.VITE_USE_MOCK !== 'false'
+const REQUEST_TIMEOUT_MS = 15_000
 
-const PROMPTS_KEY = 'ptf_mock_prompts'
-const TEST_RUNS_KEY = 'ptf_mock_test_runs'
+let mockAdapter
 
-const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms))
-
-const nowIso = () => new Date().toISOString()
-
-const createResponse = (data, status = 200) => ({
-  ok: status >= 200 && status < 300,
-  status,
-  async json() {
-    return data
-  },
-})
-
-const seededPrompts = [
-  {
-    id: 1,
-    name: 'Customer Support Assistant',
-    description: 'Friendly troubleshooting assistant for SaaS onboarding questions.',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-    versions: [
-      {
-        id: 11,
-        versionNumber: 1,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-        content: 'You are a helpful support assistant. Answer clearly and ask one follow-up question.',
-      },
-      {
-        id: 12,
-        versionNumber: 2,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-        content: 'You are an expert support assistant. Diagnose root cause, provide steps, and include confidence.',
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Invoice Exception Triage',
-    description: 'Classifies finance exceptions and drafts concise next-step recommendations for operators.',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18).toISOString(),
-    versions: [
-      {
-        id: 21,
-        versionNumber: 1,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18).toISOString(),
-        content: 'Classify the invoice exception by risk, explain the likely cause, and propose the next action.',
-      },
-      {
-        id: 22,
-        versionNumber: 2,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 16).toISOString(),
-        content: 'Act as a finance operations reviewer. Return severity, root cause hypothesis, and action owner.',
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Sales Call Summarizer',
-    description: '',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-    versions: [
-      {
-        id: 31,
-        versionNumber: 1,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-        content: 'Summarize the sales call transcript into pain points, objections, and next steps.',
-      },
-    ],
-  },
-]
-
-const readStorage = (key, fallback, storage = localStorage) => {
-  try {
-    const existing = storage.getItem(key)
-    if (!existing) return fallback
-    return JSON.parse(existing)
-  } catch {
-    return fallback
-  }
-}
-
-const writeStorage = (key, value, storage = localStorage) => {
-  storage.setItem(key, JSON.stringify(value))
-}
-
-const ensureSeedData = () => {
-  const prompts = readStorage(PROMPTS_KEY, null)
-  if (!prompts || prompts.length === 0) {
-    writeStorage(PROMPTS_KEY, seededPrompts)
-  }
-
-  const testRuns = readStorage(TEST_RUNS_KEY, null, sessionStorage)
-  if (!testRuns) {
-    writeStorage(TEST_RUNS_KEY, [], sessionStorage)
-  }
-}
-
-const renderMockAnswer = ({ promptContent, question }) => {
-  const shortPrompt = promptContent.slice(0, 60)
-  return `Mock response for: "${question || 'empty input'}"\n\nSummary: ${shortPrompt}${promptContent.length > 60 ? '…' : ''}\n\n- This is running in mock mode\n- Great for demos and UI validation\n- Configure VITE_USE_MOCK=false to use the real API`
-}
-
-const calcMetrics = () => ({
-  responseTimeMs: Math.round(clamp(350 + Math.random() * 500, 350, 850)),
-  qualityScore: Number(clamp(0.65 + Math.random() * 0.3, 0.65, 0.95).toFixed(2)),
-  costUsd: Number(clamp(0.0003 + Math.random() * 0.003, 0.0003, 0.0033).toFixed(4)),
-})
-
-const mockFetch = async (path, options = {}) => {
-  ensureSeedData()
-  await delay(200)
-
-  const method = (options.method || 'GET').toUpperCase()
-  const body = options.body ? JSON.parse(options.body) : undefined
-  const prompts = readStorage(PROMPTS_KEY, [], localStorage)
-  const testRuns = readStorage(TEST_RUNS_KEY, [], sessionStorage)
-
-  if (path === '/workspace/summary' && method === 'GET') {
-    return createResponse(summarizeWorkspace(prompts))
-  }
-
-  if (path === '/prompts' && method === 'GET') {
-    return createResponse(prompts)
-  }
-
-  if (path === '/prompts' && method === 'POST') {
-    const nextPromptId = Math.max(0, ...prompts.map((p) => p.id)) + 1
-    const prompt = {
-      id: nextPromptId,
-      name: body.name,
-      description: body.description,
-      createdAt: nowIso(),
-      versions: [
-        {
-          id: nextPromptId * 100,
-          versionNumber: 1,
-          content: body.initialContent,
-        },
-      ],
-    }
-
-    writeStorage(PROMPTS_KEY, [...prompts, prompt])
-    return createResponse(prompt, 201)
-  }
-
-  const promptMatch = path.match(/^\/prompts\/(\d+)$/)
-  if (promptMatch && method === 'GET') {
-    const promptId = Number(promptMatch[1])
-    const prompt = prompts.find((item) => item.id === promptId)
-    return prompt ? createResponse(prompt) : createResponse({ message: 'Not found' }, 404)
-  }
-
-  const createVersionMatch = path.match(/^\/prompts\/(\d+)\/versions$/)
-  if (createVersionMatch && method === 'POST') {
-    const promptId = Number(createVersionMatch[1])
-    const nextPrompts = prompts.map((item) => {
-      if (item.id !== promptId) return item
-      const nextVersionNumber = item.versions.length + 1
-      const nextVersionId = promptId * 100 + nextVersionNumber
-      return {
-        ...item,
-        versions: [
-          ...item.versions,
-          {
-            id: nextVersionId,
-            versionNumber: nextVersionNumber,
-            content: body.content,
-          },
-        ],
-      }
-    })
-    writeStorage(PROMPTS_KEY, nextPrompts)
-    return createResponse({ success: true }, 201)
-  }
-
-  if (path === '/quick-test' && method === 'POST') {
-    const results = (body.testInputs || []).map((input) => {
-      const metrics = calcMetrics()
-      return {
-        inputVariables: input,
-        aiResponse: renderMockAnswer({ promptContent: body.promptContent, question: input.question }),
-        ...metrics,
-      }
-    })
-
-    return createResponse({
-      id: Date.now(),
-      status: 'COMPLETED',
-      results,
-      metrics: {
-        averageResponseTimeMs: Math.round(average(results.map((item) => item.responseTimeMs))),
-        averageQualityScore: Number(average(results.map((item) => item.qualityScore)).toFixed(2)),
-      },
-    })
-  }
-
-  if (path === '/test-runs' && method === 'POST') {
-    const promptVersionId = Number(body.promptVersionId)
-    const results = (body.testInputs || []).map((input) => {
-      const metrics = calcMetrics()
-      return {
-        inputVariables: input,
-        aiResponse: renderMockAnswer({ promptContent: `version-${promptVersionId}`, question: input.question }),
-        ...metrics,
-      }
-    })
-
-    const run = {
-      id: Date.now(),
-      promptVersionId,
-      status: 'COMPLETED',
-      startedAt: nowIso(),
-      results,
-      metrics: {
-        averageResponseTimeMs: Math.round(average(results.map((item) => item.responseTimeMs))),
-        averageQualityScore: Number(average(results.map((item) => item.qualityScore)).toFixed(2)),
-      },
-    }
-
-    writeStorage(TEST_RUNS_KEY, [run, ...testRuns], sessionStorage)
-    return createResponse(run, 201)
-  }
-
-  const historyMatch = path.match(/^\/test-runs\/version\/(\d+)$/)
-  if (historyMatch && method === 'GET') {
-    const versionId = Number(historyMatch[1])
-    const history = testRuns.filter((run) => run.promptVersionId === versionId)
-    return createResponse(history)
-  }
-
-  return createResponse({ message: `Mock endpoint not implemented: ${method} ${path}` }, 404)
-}
-
-export const buildApiUrl = (path) => `${API_BASE}${ensureLeadingSlash(path)}`
-
+export const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`
 export const isMockMode = () => MOCK_MODE
 
-export const apiFetch = (path, options = {}) => {
-  if (MOCK_MODE) {
-    return mockFetch(path, options)
+function getMockAdapter() {
+  if (!mockAdapter) {
+    mockAdapter = createMockApi({
+      persistentStorage: globalThis.localStorage,
+      sessionStorage: globalThis.sessionStorage,
+    })
   }
-  return fetch(buildApiUrl(path), options)
+  return mockAdapter
+}
+
+async function parseResponse(response) {
+  if (response.status === 204) return null
+  const text = await response.text()
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+export async function apiRequest(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase()
+  const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body
+
+  if (MOCK_MODE) {
+    return getMockAdapter().request(path, { method, body })
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const abortFromCaller = () => controller.abort()
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true })
+
+  try {
+    const response = await fetch(buildApiUrl(path), {
+      method,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    const payload = await parseResponse(response)
+    if (!response.ok) throw createApiError(response.status, payload, path)
+    return payload
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) {
+      throw new ApiError({ status: 0, code: 'REQUEST_TIMEOUT', message: '请求超时，请稍后重试', path })
+    }
+    throw new ApiError({ status: 0, code: 'NETWORK_ERROR', message: '无法连接后端服务', path })
+  } finally {
+    clearTimeout(timeoutId)
+    options.signal?.removeEventListener('abort', abortFromCaller)
+  }
+}
+
+export const api = {
+  workspace: {
+    summary: () => apiRequest('/workspace/summary'),
+  },
+  prompts: {
+    list: () => apiRequest('/prompts'),
+    get: (id) => apiRequest(`/prompts/${id}`),
+    create: (input) => apiRequest('/prompts', { method: 'POST', body: input }),
+    update: (id, input) => apiRequest(`/prompts/${id}`, { method: 'PUT', body: input }),
+    remove: (id) => apiRequest(`/prompts/${id}`, { method: 'DELETE' }),
+    createVersion: (id, content) => apiRequest(`/prompts/${id}/versions`, {
+      method: 'POST',
+      body: { content },
+    }),
+  },
+  suites: {
+    list: () => apiRequest('/test-suites'),
+    get: (id) => apiRequest(`/test-suites/${id}`),
+    create: (input) => apiRequest('/test-suites', { method: 'POST', body: input }),
+    update: (id, input) => apiRequest(`/test-suites/${id}`, { method: 'PUT', body: input }),
+    remove: (id) => apiRequest(`/test-suites/${id}`, { method: 'DELETE' }),
+  },
+  tests: {
+    quick: (input) => apiRequest('/quick-test', { method: 'POST', body: input }),
+    run: (input) => apiRequest('/test-runs', { method: 'POST', body: input }),
+    get: (id) => apiRequest(`/test-runs/${id}`),
+    history: (versionId) => apiRequest(`/test-runs/version/${versionId}`),
+    regressionGate: (candidateRunId, input) => apiRequest(`/test-runs/${candidateRunId}/regression-gate`, { method: "POST", body: input }),
+  },
 }
 
 export { API_BASE }

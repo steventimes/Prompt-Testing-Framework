@@ -7,13 +7,18 @@ spring:
   
   datasource:
     driver-class-name: org.postgresql.Driver
+
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
   
   jackson:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
 
-mybatis:
+mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.promptframework.model.entity
   configuration:

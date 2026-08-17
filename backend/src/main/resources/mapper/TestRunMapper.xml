@@ -7,6 +7,8 @@
     <resultMap id="TestRunResultMap" type="TestRun">
         <id property="id" column="id"/>
         <result property="promptVersionId" column="prompt_version_id"/>
+        <result property="testSuiteId" column="test_suite_id"/>
+        <result property="datasetFingerprint" column="dataset_fingerprint"/>
         <result property="aiProvider" column="ai_provider"/>
         <result property="modelName" column="model_name"/>
         <result property="startedAt" column="started_at"/>
@@ -15,11 +17,14 @@
     </resultMap>
 
     <insert id="insert" parameterType="TestRun" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO test_runs (prompt_version_id, ai_provider, model_name, started_at, status)
+        INSERT INTO test_runs (
+            prompt_version_id, test_suite_id, dataset_fingerprint, ai_provider, model_name, started_at, status)
         VALUES (
-            #{promptVersionId}, 
-            #{aiProvider}, 
-            #{modelName}, 
+            #{promptVersionId},
+            #{testSuiteId},
+            #{datasetFingerprint},
+            #{aiProvider},
+            #{modelName},
             NOW(),
             #{status}
         )
@@ -30,9 +35,9 @@
     </select>
 
     <select id="findByPromptVersionId" resultMap="TestRunResultMap">
-        SELECT * FROM test_runs 
+        SELECT * FROM test_runs
         WHERE prompt_version_id = #{promptVersionId}
-        ORDER BY started_at DESC 
+        ORDER BY started_at DESC
     </select>
 
     <update id="updateCompletion">

@@ -13,6 +13,7 @@ import com.promptframework.model.entity.PromptVersion;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -25,9 +26,11 @@ public class WorkspaceDashboardService {
 
     private final PromptMapper promptMapper;
     private final PromptVersionMapper promptVersionMapper;
+    private final Clock clock;
 
     public WorkspaceSummaryResponse getWorkspaceSummary() {
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        // 统一从可注入时钟获取 UTC 时间，避免测试和发布规则随机器日期漂移。
+        LocalDateTime now = LocalDateTime.now(clock).atOffset(ZoneOffset.UTC).toLocalDateTime();
         List<PromptReadinessRow> rows = promptMapper.findAll().stream()
                 .map(prompt -> toReadinessRow(prompt, promptVersionMapper.findByPromptId(prompt.getId()), now))
                 .sorted(Comparator.comparing(PromptReadinessRow::latestActivityAt).reversed())

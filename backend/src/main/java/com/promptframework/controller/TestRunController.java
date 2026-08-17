@@ -10,11 +10,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.promptframework.model.dto.RegressionGateRequest;
+import com.promptframework.model.dto.RegressionGateResponse;
 import com.promptframework.model.dto.TestRunRequest;
 import com.promptframework.model.dto.TestRunResponse;
+import com.promptframework.service.RegressionGateService;
 import com.promptframework.service.TestRunService;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TestRunController {
 
     private final TestRunService testRunService;
+    private final RegressionGateService regressionGateService;
 
     @PostMapping
     public ResponseEntity<TestRunResponse> executeTest(
@@ -42,5 +47,12 @@ public class TestRunController {
     public ResponseEntity<List<TestRunResponse>> getTestRunsByVersion(@PathVariable Long versionId) {
         List<TestRunResponse> testRuns = testRunService.getTestRunsByVersion(versionId);
         return ResponseEntity.ok(testRuns);
+    }
+
+    @PostMapping("/{candidateRunId}/regression-gate")
+    public ResponseEntity<RegressionGateResponse> evaluateRegressionGate(
+            @PathVariable @Positive Long candidateRunId,
+            @Valid @RequestBody RegressionGateRequest request) {
+        return ResponseEntity.ok(regressionGateService.evaluate(candidateRunId, request));
     }
 }

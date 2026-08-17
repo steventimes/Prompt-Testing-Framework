@@ -1,7 +1,8 @@
 package com.promptframework.model.dto;
 
-import lombok.Data;
 import com.promptframework.model.entity.TestResult;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -10,6 +11,8 @@ public class TestRunResponse {
 
     private Long id;
     private Long promptVersionId;
+    private Long testSuiteId;
+    private String datasetFingerprint;
     private String aiProvider;
     private String modelName;
     private LocalDateTime startedAt;
@@ -23,7 +26,17 @@ public class TestRunResponse {
 
         private Double averageResponseTimeMs;
         private Double averageQualityScore;
+        private Integer qualityScoredCases;
+        private Double qualityCoverage;
         private Integer totalTokens;
         private Double totalCostUsd;
+        private Integer completedCases;
+        private Integer failedCases;
+        private Double averagePrivacyRiskScore;
+        private Integer totalPrivacyFindings;
+        private Integer totalAssertions;
+        private Integer passedAssertions;
+        private Integer failedAssertions;
+        private Double assertionPassRate;
     }
 }

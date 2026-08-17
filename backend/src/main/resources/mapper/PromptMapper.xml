@@ -21,6 +21,10 @@
         SELECT * FROM prompts WHERE id = #{id}
     </select>
 
+    <select id="findByIdForUpdate" resultMap="PromptResultMap">
+        SELECT * FROM prompts WHERE id = #{id} FOR UPDATE
+    </select>
+
     <select id="findAll" resultMap="PromptResultMap">
         SELECT * FROM prompts ORDER BY created_at DESC
     </select>

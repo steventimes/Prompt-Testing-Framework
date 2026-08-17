@@ -4,80 +4,96 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
-import java.util.regex.Matcher;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.promptframework.exception.PromptExecutionException;
 import com.promptframework.model.dto.McpToolCall;
 import com.promptframework.model.dto.PrivacySummary;
+import com.promptframework.model.dto.PromptTemplateAnalysis;
 
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AIExecutionService {
 
-    @Value("${ai.mock-mode:false}")
-    private boolean globalMockMode;
+    private final boolean globalMockMode;
+    private final ChatModelResolver chatModelResolver;
+    private final PromptTemplateService promptTemplateService;
+    private final QualityScoreParser qualityScoreParser = new QualityScoreParser();
 
-    private final Optional<ChatLanguageModel> globalChatModel;
-    private final Random random = new Random();
+    public AIExecutionService(
+            @Value("${ai.mock-mode:false}") boolean globalMockMode,
+            ChatModelResolver chatModelResolver,
+            PromptTemplateService promptTemplateService
+    ) {
+        this.globalMockMode = globalMockMode;
+        this.chatModelResolver = chatModelResolver;
+        this.promptTemplateService = promptTemplateService;
+    }
 
     /**
-     * Executes the prompt and then runs an automated evaluation
-     * (LLM-as-a-Judge).
+     * 执行 Prompt，并使用与本次请求相同的模型裁判自动评估输出质量。
      */
     public AIResponse execute(String promptContent, Map<String, String> variables,
             String aiProvider, String modelName) {
 
-        boolean shouldMock = globalMockMode;
-        if (globalChatModel.isEmpty()) {
-            shouldMock = true;
-        }
-        AIResponse response;
-        if (shouldMock) {
-            response = executeMock(promptContent, variables, aiProvider, modelName);
-        } else {
-            response = executeReal(promptContent, variables, aiProvider, modelName);
+        PromptTemplateAnalysis template = promptTemplateService.analyze(promptContent, variables);
+        if (!template.complete()) {
+            throw new PromptExecutionException(
+                    "PROMPT_VARIABLES_MISSING",
+                    "缺少 Prompt 变量: " + String.join(", ", template.missingVariables())
+            );
         }
 
-        if (!shouldMock && response.getResponseText() != null) {
-            double qualityScore = evaluateQuality(promptContent, response.getResponseText());
-            response.setQualityScore(qualityScore);
+        AIResponse response;
+        if (globalMockMode) {
+            response = executeMock(template.renderedContent(), aiProvider, modelName);
+            response.setQualityScore(deterministicQuality(template.renderedContent(), aiProvider, modelName));
         } else {
-            // Mock scoring
-            response.setQualityScore(0.7 + (random.nextDouble() * 0.2));
+            // 每个运行按请求坐标解析一次，生成和裁判复用同一个客户端。
+            ChatModel requestModel = chatModelResolver.resolve(aiProvider, modelName);
+            response = executeReal(template.renderedContent(), aiProvider, modelName, requestModel);
+            QualityEvaluation quality = evaluateQuality(requestModel,
+                    template.renderedContent(), response.getResponseText());
+            response.setQualityScore(quality.score());
+            response.setTokenCount(sumUsage(response.getTokenCount(), quality.tokenCount()));
         }
 
         response.setMcpCalls(generateMcpCalls(promptContent, variables));
-        response.setPrivacySummary(evaluatePrivacy(promptContent, variables, response.getResponseText()));
+        response.setPrivacySummary(evaluatePrivacy(template.renderedContent(), Map.of(), response.getResponseText()));
 
         return response;
     }
 
-    private AIResponse executeReal(String promptContent, Map<String, String> variables,
-            String provider, String modelName) {
-
-        String finalPrompt = resolveVariables(promptContent, variables);
-        ChatLanguageModel modelToUse = configuredModel();
-
+    private AIResponse executeReal(
+            String promptContent,
+            String provider,
+            String modelName,
+            ChatModel modelToUse
+    ) {
         long startTime = System.currentTimeMillis();
-        String responseText;
+        ChatResponse generation;
         try {
-            responseText = modelToUse.generate(finalPrompt);
-        } catch (Exception e) {
-            log.error("AI Error", e);
-            responseText = "Error: " + e.getMessage();
+            generation = modelToUse.chat(UserMessage.from(promptContent));
+        } catch (Exception exception) {
+            throw new PromptExecutionException("PROVIDER_EXECUTION_FAILED", "模型调用失败", exception);
         }
         long endTime = System.currentTimeMillis();
+
+        String responseText = responseText(generation);
+        if (responseText == null || responseText.isBlank()) {
+            throw new PromptExecutionException("PROVIDER_EMPTY_RESPONSE", "模型返回了空响应");
+        }
 
         AIResponse response = new AIResponse();
         response.setResponseText(responseText);
@@ -85,21 +101,19 @@ public class AIExecutionService {
         response.setProvider(provider);
         response.setModel(modelName);
         response.setMock(false);
-        // Estimate: 1 token ~= 4 chars
-        response.setTokenCount(responseText.length() / 4);
-        // Estimate: $0.002 per 1k tokens
-        response.setCostUsd((response.getTokenCount() / 1000.0) * 0.002);
+        // 真实 Token 只采信供应商返回的 usage；缺失时不能退回字符估算。
+        response.setTokenCount(tokenCount(generation));
+        // 未配置按供应商/模型版本核验的价格表，真实调用成本必须明确为未知。
+        response.setCostUsd(null);
 
         return response;
     }
 
     /**
-     * "LLM-as-a-Judge": Uses a cheaper model to grade the output.
+     * 模型裁判：保留裁判 usage，即使评分文本格式非法也不丢弃已获得的计量证据。
      */
-    private double evaluateQuality(String originalPrompt, String aiOutput) {
+    private QualityEvaluation evaluateQuality(ChatModel judgeModel, String originalPrompt, String aiOutput) {
         try {
-            ChatLanguageModel judgeModel = configuredModel();
-
             String gradingPrompt = String.format("""
                                                  You are an AI Quality Judge. Rate the following AI response on a scale of 0.0 to 1.0 based on helpfulness, clarity, and adherence to instructions.
                                                  Only return the number, nothing else.
@@ -110,45 +124,57 @@ public class AIExecutionService {
                     originalPrompt.substring(0, Math.min(originalPrompt.length(), 500)),
                     aiOutput
             );
-
-            String scoreStr = judgeModel.generate(gradingPrompt).trim();
-            Matcher m = Pattern.compile("[0-1](\\.\\d+)?").matcher(scoreStr);
-            if (m.find()) {
-                return Double.parseDouble(m.group());
-            }
-            return 0.5;
-        } catch (NumberFormatException e) {
-            log.warn("Failed to auto-evaluate quality", e);
-            return 0.0;
+            ChatResponse judgeResponse = judgeModel.chat(UserMessage.from(gradingPrompt));
+            return new QualityEvaluation(qualityScoreParser.parse(responseText(judgeResponse)), tokenCount(judgeResponse));
+        } catch (Exception exception) {
+            // 评分失败不应抹掉已经成功生成的主响应，也不能伪造中性分或部分 Token 总数。
+            log.warn("自动质量评分失败，质量分与本次总 Token 留空", exception);
+            return new QualityEvaluation(null, null);
         }
     }
 
-    private ChatLanguageModel configuredModel() {
-        return globalChatModel.orElseThrow(() -> new RuntimeException("No API Key"));
+    private String responseText(ChatResponse response) {
+        if (response == null) {
+            return null;
+        }
+        AiMessage message = response.aiMessage();
+        return message == null ? null : message.text();
     }
 
-    private String resolveVariables(String content, Map<String, String> variables) {
-        if (variables == null) {
-            return content;
-        }
-        String result = content;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            result = result.replace("{{" + entry.getKey() + "}}", entry.getValue())
-                    .replace("{" + entry.getKey() + "}", entry.getValue());
-        }
-        return result;
+    private Integer tokenCount(ChatResponse response) {
+        return response == null || response.tokenUsage() == null
+                ? null
+                : response.tokenUsage().totalTokenCount();
     }
 
-    private AIResponse executeMock(String promptContent, Map<String, String> variables, String provider, String modelName) {
-        AIResponse res = new AIResponse();
-        res.setResponseText("[MOCK] Response for: " + promptContent);
-        res.setResponseTimeMs(150 + random.nextInt(100));
-        res.setProvider(provider);
-        res.setModel(modelName);
-        res.setTokenCount(promptContent.length() / 4);
-        res.setCostUsd(0.0);
-        res.setMock(true);
-        return res;
+    private Integer sumUsage(Integer generationTokens, Integer judgeTokens) {
+        if (generationTokens == null || judgeTokens == null) {
+            return null;
+        }
+        try {
+            return Math.addExact(generationTokens, judgeTokens);
+        } catch (ArithmeticException overflow) {
+            log.warn("模型 usage 总数溢出，Token 总数留空", overflow);
+            return null;
+        }
+    }
+
+    private AIResponse executeMock(String renderedPrompt, String provider, String modelName) {
+        int fingerprint = Objects.hash(renderedPrompt, provider, modelName);
+        AIResponse response = new AIResponse();
+        response.setResponseText("[MOCK] 已完成模板渲染与执行模拟。\n\n" + renderedPrompt);
+        response.setResponseTimeMs(180 + Math.floorMod(fingerprint, 241));
+        response.setProvider(provider);
+        response.setModel(modelName);
+        response.setTokenCount(Math.max(1, renderedPrompt.length() / 4));
+        response.setCostUsd(0.0);
+        response.setMock(true);
+        return response;
+    }
+
+    private double deterministicQuality(String promptContent, String provider, String modelName) {
+        int fingerprint = Objects.hash(promptContent, provider, modelName, "quality");
+        return 0.70 + (Math.floorMod(fingerprint, 21) / 100.0);
     }
 
     private List<McpToolCall> generateMcpCalls(String promptContent, Map<String, String> variables) {
@@ -205,6 +231,9 @@ public class AIExecutionService {
 
         score = Math.min(score, 1.0);
         return new PrivacySummary(score, flags);
+    }
+
+    private record QualityEvaluation(Double score, Integer tokenCount) {
     }
 
     @Data

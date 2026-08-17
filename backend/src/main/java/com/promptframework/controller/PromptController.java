@@ -2,7 +2,8 @@ package com.promptframework.controller;
 
 import com.promptframework.model.dto.PromptCreateRequest;
 import com.promptframework.model.dto.PromptResponse;
-import com.promptframework.model.entity.Prompt;
+import com.promptframework.model.dto.PromptUpdateRequest;
+import com.promptframework.model.dto.PromptVersionCreateRequest;
 import com.promptframework.model.entity.PromptVersion;
 import com.promptframework.service.PromptService;
 import jakarta.validation.Valid;
@@ -12,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/prompts")
@@ -28,7 +28,7 @@ public class PromptController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Prompt>> getAllPrompts() {
+    public ResponseEntity<List<PromptResponse>> getAllPrompts() {
         return ResponseEntity.ok(promptService.getAllPrompts());
     }
 
@@ -40,26 +40,21 @@ public class PromptController {
     @PostMapping("/{id}/versions")
     public ResponseEntity<PromptVersion> createVersion(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String content = body.get("content");
-        if (content == null || content.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-        return ResponseEntity.status(HttpStatus.CREATED).body(promptService.createNewVersion(id, content));
+            @Valid @RequestBody PromptVersionCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(promptService.createNewVersion(id, request.getContent()));
     }
 
-    @PostMapping("/{id}/versions/named")
-    public ResponseEntity<PromptVersion> createNamedVersion(
+    @PutMapping("/{id}")
+    public ResponseEntity<PromptResponse> updatePrompt(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String content = body.get("content");
-        String versionName = body.get("versionName"); // used later
+            @Valid @RequestBody PromptUpdateRequest request) {
+        return ResponseEntity.ok(promptService.updatePrompt(id, request));
+    }
 
-        if (content == null || content.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        PromptVersion version = promptService.createNewVersion(id, content);
-        return ResponseEntity.status(HttpStatus.CREATED).body(version);
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePrompt(@PathVariable Long id) {
+        promptService.deletePrompt(id);
     }
 }

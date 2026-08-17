@@ -3,7 +3,7 @@ spring:
     url: jdbc:postgresql://localhost:5432/prompt_testing
     username: promptuser
     password: promptpass
-  
+
   data:
     redis:
       host: localhost
@@ -11,13 +11,8 @@ spring:
       timeout: 2000ms
 
 ai:
-  mock-mode: true  # Set to false when have real API keys
-# TODO, add api keys later
-# Only needed when mock-mode is false
-# langchain4j:
-#   open-ai:
-#     chat-model:
-#       api-key: ${OPENAI_API_KEY:}
-#   anthropic:
-#     chat-model:
-#       api-key: ${ANTHROPIC_API_KEY:}
+  mock-mode: ${AI_MOCK_MODE:true}  # 配置真实模型凭据后可切换为 false。
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+  anthropic:
+    api-key: ${ANTHROPIC_API_KEY:}

@@ -8,6 +8,8 @@ public class TestRun {
 
     private Long id;
     private Long promptVersionId;
+    private Long testSuiteId;
+    private String datasetFingerprint;
     private String aiProvider;
     private String modelName;
     private LocalDateTime startedAt;
