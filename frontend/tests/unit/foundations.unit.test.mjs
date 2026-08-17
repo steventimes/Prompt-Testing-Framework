@@ -8,6 +8,16 @@ import { createComparisonPlan } from '../../src/lib/comparisonPlan.js'
 import { formatCost, formatDuration, formatNumber } from '../../src/lib/format.js'
 import { average, clamp, ensureLeadingSlash } from '../../src/lib/mockMath.js'
 import { analyzeTemplate, renderTemplate } from '../../src/lib/promptTemplate.js'
+import { getRouterBasename } from '../../src/lib/routing.js'
+
+// Source: tests/unit/routing.unit.test.mjs
+{
+  test('GitHub Pages 部署前缀会转换为 BrowserRouter basename', () => {
+    assert.equal(getRouterBasename('/Prompt-Testing-Framework/'), '/Prompt-Testing-Framework')
+    assert.equal(getRouterBasename('/'), undefined)
+    assert.equal(getRouterBasename('./'), undefined)
+  })
+}
 
 // Source: tests/unit/mockMath.unit.test.mjs
 {

@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import AppShell from './components/AppShell.jsx'
 import { PageLoader } from './components/Ui.jsx'
+import { getRouterBasename } from './lib/routing.js'
 
 const Home = lazy(() => import('./pages/HomePage.jsx'))
 const CreatePrompt = lazy(() => import('./pages/CreatePromptPage.jsx'))
@@ -13,7 +14,7 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={getRouterBasename(import.meta.env.BASE_URL)}>
       <Toaster
         position="top-right"
         toastOptions={{ duration: 3600, className: 'app-toast' }}
