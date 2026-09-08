@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "verify": "npm run lint && npm run test:all && npm run build",
     "preview": "vite preview",
     "test:property": "node --test --test-name-pattern=\"^property:\" tests/verification/mockMath.verification.test.mjs",
     "test:sanity": "node --test --test-name-pattern=\"^smoke:\" tests/verification/mockMath.verification.test.mjs",

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 import { api } from '../../src/lib/api.js'
 import { ApiError, createApiError } from '../../src/lib/apiContract.js'
-import { createEvaluationCase, evaluateAssertions, normalizeEvaluationCases } from '../../src/lib/assertions.js'
+import { createEvaluationCase, evaluateAssertions, normalizeEvaluationCases, projectEvaluationVariables } from '../../src/lib/assertions.js'
 import { createComparisonPlan } from '../../src/lib/comparisonPlan.js'
 import { formatCost, formatDuration, formatNumber } from '../../src/lib/format.js'
 import { average, clamp, ensureLeadingSlash } from '../../src/lib/mockMath.js'
@@ -212,3 +212,12 @@ import { getRouterBasename } from '../../src/lib/routing.js'
     )
   })
 }
+
+test('suite variable removal persists without losing retained values or assertions', () => {
+  const source = [{ name: 'example', variables: { question: 'hello', removed: 'old' }, assertions: [{ type: 'CONTAINS', value: 'hello' }] }]
+  const projected = projectEvaluationVariables(source, ['question', 'added'])
+  assert.deepEqual(projected[0].variables, { question: 'hello', added: '' })
+  assert.deepEqual(projected[0].assertions, source[0].assertions)
+  assert.deepEqual(source[0].variables, { question: 'hello', removed: 'old' })
+  assert.deepEqual(projectEvaluationVariables(source, [])[0].variables, {})
+})

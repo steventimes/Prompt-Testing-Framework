@@ -1,17 +1,44 @@
-/* 窄屏仍保留工作区与套件入口，只收起文字，避免移动端导航成为死路。 */
-@media (max-width: 820px) {
-  .topnav > a:not(.button) {
-    display: inline-flex;
-    width: 34px;
-    height: 34px;
-    justify-content: center;
-    padding: 0;
-    font-size: 0;
-  }
-  .topnav > a:not(.button) svg { width: 17px; height: 17px; }
+@media (max-width: 1000px) {
+  .topbar { gap: 18px; }
+  .workbench-primary { grid-template-columns: 1fr; }
+  .prompt-editor { min-height: 280px; }
+  .suite-layout { grid-template-columns: 230px minmax(0, 1fr); }
+  .suite-meta-grid { grid-template-columns: 1fr; }
+  .section-heading { flex-wrap: wrap; }
 }
-
-@media (max-width: 430px) {
-  .brand strong { max-width: 132px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .topnav { gap: 4px; }
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; padding: 12px 16px 0; gap: 12px; }
+  .brand { font-size: 14px; }
+  .topnav { order: 3; flex-basis: 100%; }
+  .topnav a { padding: 10px 12px; }
+  .runtime-button { min-height: 34px; padding: 5px 8px; font-size: 12px; }
+  .mode-notice { padding: 8px 16px; }
+  .page-wrap { width: calc(100% - 32px); padding-top: 24px; }
+  .workspace-header, .workbench-header, .suite-intro { flex-direction: column; gap: 16px; }
+  .heading-actions { gap: 8px; }
+  .quick-grid, .version-pair, .suite-layout, .paired-results > article > div { grid-template-columns: 1fr; }
+  .quick-history { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+  .suite-list { max-height: 220px; }
+  .paired-results section + section { border-left: 0; border-top: 1px solid var(--line); }
+  .metric-grid, .gate-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-tile + .metric-tile { border-left: 0; }
+  .metric-tile { border-bottom: 1px solid var(--line); }
+  .metric-tile:nth-child(even) { border-left: 1px solid var(--line); }
+  .metric-tile:last-child { border-bottom: 0; }
+  .prompt-table th:nth-child(3), .prompt-table td:nth-child(3) { display: none; }
+  .prompt-table td:first-child { min-width: 130px; }
+  .prompt-table th, .prompt-table td { padding: 12px; }
+  .list-toolbar { flex-wrap: wrap; }
+  .history-list time { margin-left: 0; }
+  .quick-lab, .form-panel, .template-panel, .test-config-panel, .history-panel, .compare-config, .suite-editor-panel, .result-panel, .comparison-verdict { padding: 16px; }
+  .inline-error { flex-wrap: wrap; }
+  .assertion-evidence > div { grid-template-columns: 16px minmax(0, 1fr); }
+  .assertion-evidence code { grid-column: 2; }
+}
+@media (max-width: 420px) {
+  .brand { white-space: normal; max-width: 175px; }
+  .assertion-rule { grid-template-columns: minmax(0, 1fr) 38px; }
+  .assertion-rule > input, .assertion-rule > .assertion-static { grid-row: 2; grid-column: 1 / -1; }
+  .assertion-rule > .icon-button { grid-row: 1; grid-column: 2; }
+  .case-name { flex-wrap: wrap; gap: 4px; }
 }

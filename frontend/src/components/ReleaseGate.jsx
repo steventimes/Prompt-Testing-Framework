@@ -6,7 +6,7 @@ export default function ReleaseGate({ verdict, snapshot }) {
   return (
     <section className={`release-gate release-${String(verdict.verdict || 'incomparable').toLowerCase()}`} aria-live="polite">
       <div className="release-summary">
-        <span className="eyebrow">Release gate · A → B</span>
+        <span className="eyebrow">回归检查 · A → B</span>
         <h2>{labels[verdict.verdict] || '门禁未知'}</h2>
         <p>基线 V{snapshot?.leftVersion?.versionNumber ?? '—'} → 候选 V{snapshot?.rightVersion?.versionNumber ?? '—'}。{description(verdict.verdict)}</p>
       </div>

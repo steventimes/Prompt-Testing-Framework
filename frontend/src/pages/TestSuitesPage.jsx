@@ -1,6 +1,4 @@
 import {
-  CheckCircle2,
-  FileStack,
   LoaderCircle,
   Plus,
   Save,
@@ -12,7 +10,7 @@ import TestCaseEditor from '../components/TestCaseEditor.jsx'
 import { EmptyState, InlineError, PageLoader } from '../components/Ui.jsx'
 import { api } from '../lib/api.js'
 import { errorMessage } from '../lib/apiContract.js'
-import { createEvaluationCase, normalizeEvaluationCases } from '../lib/assertions.js'
+import { createEvaluationCase, normalizeEvaluationCases, projectEvaluationVariables } from '../lib/assertions.js'
 import { formatDateTime } from '../lib/format.js'
 
 const blankDraft = () => ({
@@ -31,6 +29,7 @@ export default function TestSuitesPage() {
   const [draft, setDraft] = useState(blankDraft)
   const [variableText, setVariableText] = useState('question')
   const [action, setAction] = useState(null)
+  const [savedDraft, setSavedDraft] = useState('')
 
   const load = async () => {
     setView((current) => ({ ...current, status: 'loading', error: null }))
@@ -66,16 +65,24 @@ export default function TestSuitesPage() {
 
   function selectSuite(suite) {
     const names = variableNamesOf(suite)
-    setDraft({ ...suite, cases: normalizeEvaluationCases(suite.cases, names) })
+    const next = { ...suite, cases: normalizeEvaluationCases(suite.cases, names) }
+    setDraft(next)
+    setSavedDraft(JSON.stringify({ draft: next, variableText: names.join(', ') }))
     setVariableText(names.join(', '))
   }
 
   function startNew() {
-    setDraft(blankDraft())
+    const next = blankDraft()
+    setDraft(next)
+    setSavedDraft(JSON.stringify({ draft: next, variableText: 'question' }))
     setVariableText('question')
   }
 
+  const isDirty = JSON.stringify({ draft, variableText }) !== savedDraft
+  const canSwitch = () => !action && (!isDirty || window.confirm('当前套件有未保存的修改，切换会丢弃修改。继续？'))
+
   const save = async () => {
+    if (action) return
     if (!draft.name.trim()) {
       toast.error('先填写套件名称')
       return
@@ -85,7 +92,7 @@ export default function TestSuitesPage() {
       const payload = {
         name: draft.name.trim(),
         description: draft.description.trim(),
-        cases: normalizeEvaluationCases(draft.cases, variables),
+        cases: projectEvaluationVariables(draft.cases, variables),
       }
       const saved = draft.id
         ? await api.suites.update(draft.id, payload)
@@ -104,7 +111,7 @@ export default function TestSuitesPage() {
   }
 
   const remove = async () => {
-    if (!draft.id || !window.confirm(`删除「${draft.name}」？历史运行会保留，但不再关联此套件。`)) return
+    if (action || !draft.id || !window.confirm(`删除「${draft.name}」？历史运行会保留，但不再关联此套件。`)) return
     setAction('deleting')
     try {
       await api.suites.remove(draft.id)
@@ -127,11 +134,10 @@ export default function TestSuitesPage() {
     <div className="page-wrap suite-page">
       <header className="page-intro suite-intro">
         <div>
-          <span className="eyebrow"><FileStack size={13} /> Regression library</span>
           <h1>测试套件</h1>
-          <p>把变量、挑战样本与通过条件固定下来，让不同版本面对同一组证据。</p>
+          <p>保存可复用的测试用例和断言。</p>
         </div>
-        <button className="button button-primary" onClick={startNew} type="button">
+        <button className="button button-primary" disabled={Boolean(action)} onClick={() => { if (canSwitch()) startNew() }} type="button">
           <Plus size={16} /> 新建套件
         </button>
       </header>
@@ -139,8 +145,7 @@ export default function TestSuitesPage() {
       <div className="suite-layout">
         <aside className="panel suite-library">
           <header>
-            <div><span>LIBRARY</span><strong>{view.suites.length} 个套件</strong></div>
-            <CheckCircle2 size={18} />
+            <strong>{view.suites.length} 个套件</strong>
           </header>
           {view.suites.length === 0 ? (
             <EmptyState
@@ -155,11 +160,10 @@ export default function TestSuitesPage() {
               {view.suites.map((suite) => {
                 const assertions = suite.cases.reduce((total, testCase) => total + (testCase.assertions?.length || 0), 0)
                 return (
-                  <button className={draft.id === suite.id ? 'is-active' : ''} key={suite.id} onClick={() => selectSuite(suite)} type="button">
-                    <span>SUITE {String(suite.id).padStart(3, '0')}</span>
+                  <button className={draft.id === suite.id ? 'is-active' : ''} key={suite.id} aria-pressed={draft.id === suite.id} disabled={Boolean(action)} onClick={() => { if (draft.id !== suite.id && canSwitch()) selectSuite(suite) }} type="button">
                     <strong>{suite.name}</strong>
                     <p>{suite.description || '未填写用途说明'}</p>
-                    <footer><b>{suite.cases.length} cases</b><b>{assertions} assertions</b><time>{formatDateTime(suite.updatedAt)}</time></footer>
+                    <footer><b>{suite.cases.length} 个用例</b><b>{assertions} 条断言</b><time>{formatDateTime(suite.updatedAt)}</time></footer>
                   </button>
                 )
               })}
@@ -170,30 +174,32 @@ export default function TestSuitesPage() {
         <section className="panel suite-editor-panel">
           <header className="section-heading">
             <div>
-              <span className="eyebrow">{draft.id ? `Suite / ${draft.id}` : 'New suite'}</span>
-              <h2>{draft.id ? '编辑回归档案' : '定义回归档案'}</h2>
-              <p>{draft.cases.length} 个用例 · {assertionCount} 条自动判定信号</p>
+              <h2>{draft.id ? '编辑套件' : '新建套件'}</h2>
+              <p>{draft.cases.length} 个用例 · {assertionCount} 条断言</p>
+              {isDirty ? <small>有未保存的修改</small> : null}
             </div>
             <div className="heading-actions">
-              {draft.id ? <button className="button button-danger button-compact" disabled={action === 'deleting'} onClick={remove} type="button"><Trash2 size={15} /> 删除</button> : null}
-              <button className="button button-primary button-compact" disabled={action === 'saving'} onClick={save} type="button">
+              {draft.id ? <button className="button button-danger button-compact" disabled={Boolean(action)} onClick={remove} type="button"><Trash2 size={15} /> 删除</button> : null}
+              <button className="button button-primary button-compact" disabled={Boolean(action) || !draft.name.trim()} onClick={save} type="button">
                 {action === 'saving' ? <LoaderCircle className="spin" size={15} /> : <Save size={15} />}
                 {draft.id ? '保存更改' : '创建套件'}
               </button>
             </div>
           </header>
 
+          <fieldset disabled={Boolean(action)}>
           <div className="suite-meta-grid">
             <label className="field-group"><span>套件名称</span><input maxLength="200" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：客服发布门禁" /></label>
             <label className="field-group"><span>模板变量（逗号分隔）</span><input value={variableText} onChange={(event) => setVariableText(event.target.value)} placeholder="question, locale" /></label>
-            <label className="field-group suite-description"><span>用途说明</span><textarea rows="2" maxLength="2000" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="说明这组挑战样本用于哪一道发布门禁" /></label>
+            <label className="field-group suite-description"><span>用途说明</span><textarea rows="2" maxLength="2000" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="说明这组用例的用途" /></label>
           </div>
 
           <div className="suite-matrix-heading">
-            <div><span className="eyebrow">Reusable matrix</span><h3>用例与断言</h3></div>
+            <h3>用例与断言</h3>
             <p>保存后可在 Prompt 工作台和版本对比中直接复用。</p>
           </div>
           <TestCaseEditor variables={variables} cases={draft.cases} onChange={(cases) => setDraft((current) => ({ ...current, cases }))} maxCases={100} />
+          </fieldset>
         </section>
       </div>
     </div>

@@ -1,22 +1,31 @@
 import { Server, ShieldCheck, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { API_BASE, isMockMode } from '../lib/api.js'
 
 export default function RuntimeModal({ onClose }) {
+  const dialogRef = useRef(null)
   useEffect(() => {
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') onClose()
+    const dialog = dialogRef.current
+    const trigger = document.activeElement
+    dialog.showModal()
+    return () => { dialog.close(); trigger?.focus() }
+  }, [])
+
+  const keepFocus = (event) => {
+    if (event.key !== 'Tab') return
+    const buttons = [...dialogRef.current.querySelectorAll('button')]
+    const next = event.shiftKey ? buttons.at(-1) : buttons[0]
+    const boundary = event.shiftKey ? buttons[0] : buttons.at(-1)
+    if (document.activeElement === boundary) {
+      event.preventDefault()
+      next.focus()
     }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [onClose])
+  }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section aria-labelledby="runtime-title" aria-modal="true" className="modal-card" role="dialog">
+    <dialog ref={dialogRef} aria-labelledby="runtime-title" className="modal-card" onKeyDown={keepFocus} onCancel={onClose}>
         <header>
           <div>
-            <span className="eyebrow">Runtime</span>
             <h2 id="runtime-title">运行环境</h2>
           </div>
           <button aria-label="关闭" className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
@@ -32,8 +41,7 @@ export default function RuntimeModal({ onClose }) {
         <p className="modal-note">
           模型凭据只在后端环境变量中配置，前端不会读取或保存 API Key。Mock 模式的 Prompt 保存在浏览器本地，运行历史仅保留在当前会话。
         </p>
-        <button className="button button-primary" onClick={onClose} type="button">了解</button>
-      </section>
-    </div>
+        <button className="button button-primary" onClick={onClose} type="button">关闭</button>
+    </dialog>
   )
 }

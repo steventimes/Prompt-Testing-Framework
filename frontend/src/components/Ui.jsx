@@ -5,7 +5,6 @@ export function PageLoader({ label = '正在加载' }) {
     <div className="page-state" role="status">
       <span className="loader-orbit"><LoaderCircle size={24} /></span>
       <strong>{label}</strong>
-      <span>正在同步结构与运行证据</span>
     </div>
   )
 }
@@ -52,10 +51,10 @@ export function MetricTile({ label, value, detail, tone = 'default' }) {
   )
 }
 
-export function EmptyState({ eyebrow = '暂无记录', title, detail, actionLabel, onAction }) {
+export function EmptyState({ eyebrow, title, detail, actionLabel, onAction }) {
   return (
     <div className="empty-state">
-      <span className="eyebrow">{eyebrow}</span>
+      {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
       <h3>{title}</h3>
       <p>{detail}</p>
       {onAction ? (

@@ -19,7 +19,7 @@ function App() {
         position="top-right"
         toastOptions={{ duration: 3600, className: 'app-toast' }}
       />
-      <Suspense fallback={<PageLoader label="正在装配实验台" />}>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<Home />} />

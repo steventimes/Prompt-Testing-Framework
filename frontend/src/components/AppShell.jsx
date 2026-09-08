@@ -1,40 +1,28 @@
-import { FileStack, FlaskConical, Plus, RadioTower } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
+import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { isMockMode } from '../lib/api.js'
+import RuntimeModal from './RuntimeModal.jsx'
 
 export default function AppShell() {
   const mockMode = isMockMode()
-
+  const [showRuntime, setShowRuntime] = useState(false)
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <header className="topbar">
-        <Link className="brand" to="/" aria-label="Prompt Signal Lab 首页">
-          <span className="brand-signal" aria-hidden="true"><i /><i /><i /></span>
-          <span>
-            <strong>Prompt Signal Lab</strong>
-            <small>评测与发布证据工作台</small>
-          </span>
-        </Link>
-
+        <Link className="brand" to="/">Prompt Testing Framework</Link>
         <nav className="topnav" aria-label="主导航">
-          <NavLink to="/" end><FlaskConical size={16} /> 工作区</NavLink>
-          <NavLink to="/test-suites"><FileStack size={16} /> 测试套件</NavLink>
-          <span className={`runtime-chip ${mockMode ? 'is-mock' : 'is-live'}`}>
-            <RadioTower size={14} /> {mockMode ? '确定性 Mock' : '实时后端'}
-          </span>
-          <Link className="button button-primary button-compact" to="/create">
-            <Plus size={16} /> 新建 Prompt
-          </Link>
+          <NavLink to="/" end>Prompts</NavLink>
+          <NavLink to="/test-suites">测试套件</NavLink>
         </nav>
+        <button className="button button-secondary runtime-button" onClick={() => setShowRuntime(true)} type="button">
+          <Settings2 size={15} /> {mockMode ? '演示模式' : '后端模式'}
+        </button>
       </header>
-      <main id="main-content" className="app-main">
-        <Outlet />
-      </main>
-      <footer className="app-footer">
-        <span>Prompt Signal Lab</span>
-        <span>模板 · 套件 · 断言 · 运行证据</span>
-      </footer>
+      {showRuntime ? <RuntimeModal onClose={() => setShowRuntime(false)} /> : null}
+      {mockMode ? <div className="mode-notice">演示数据保存在当前浏览器，测试使用模拟响应，不调用真实模型。</div> : null}
+      <main id="main-content" className="app-main" tabIndex={-1}><Outlet /></main>
     </div>
   )
 }

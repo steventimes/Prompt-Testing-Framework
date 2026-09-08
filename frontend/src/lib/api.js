@@ -41,8 +41,11 @@ export async function apiRequest(path, options = {}) {
   }
 
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  // Batch evaluation is synchronous and can legitimately exceed a CRUD timeout.
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null
   const abortFromCaller = () => controller.abort()
+  if (options.signal?.aborted) abortFromCaller()
   options.signal?.addEventListener('abort', abortFromCaller, { once: true })
 
   try {
@@ -62,6 +65,9 @@ export async function apiRequest(path, options = {}) {
   } catch (error) {
     if (error instanceof ApiError) throw error
     if (controller.signal.aborted) {
+      if (options.signal?.aborted) {
+        throw new ApiError({ status: 0, code: 'REQUEST_ABORTED', message: '已停止等待响应', path })
+      }
       throw new ApiError({ status: 0, code: 'REQUEST_TIMEOUT', message: '请求超时，请稍后重试', path })
     }
     throw new ApiError({ status: 0, code: 'NETWORK_ERROR', message: '无法连接后端服务', path })
@@ -94,8 +100,8 @@ export const api = {
     remove: (id) => apiRequest(`/test-suites/${id}`, { method: 'DELETE' }),
   },
   tests: {
-    quick: (input) => apiRequest('/quick-test', { method: 'POST', body: input }),
-    run: (input) => apiRequest('/test-runs', { method: 'POST', body: input }),
+    quick: (input) => apiRequest('/quick-test', { method: 'POST', body: input, timeoutMs: 0 }),
+    run: (input) => apiRequest('/test-runs', { method: 'POST', body: input, timeoutMs: 0 }),
     get: (id) => apiRequest(`/test-runs/${id}`),
     history: (versionId) => apiRequest(`/test-runs/version/${versionId}`),
     regressionGate: (candidateRunId, input) => apiRequest(`/test-runs/${candidateRunId}/regression-gate`, { method: "POST", body: input }),

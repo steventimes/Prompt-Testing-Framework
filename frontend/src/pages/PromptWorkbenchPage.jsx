@@ -1,6 +1,6 @@
+import ModelFields from '../components/ModelFields.jsx'
 import {
   ArrowLeft,
-  Braces,
   GitCompareArrows,
   LoaderCircle,
   Pencil,
@@ -12,7 +12,6 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ResultPanel from '../components/ResultPanel.jsx'
-import Sparkline from '../components/Sparkline.jsx'
 import SuiteSourcePicker from '../components/SuiteSourcePicker.jsx'
 import TestCaseEditor from '../components/TestCaseEditor.jsx'
 import { InlineError, PageLoader, StatusBadge } from '../components/Ui.jsx'
@@ -29,7 +28,7 @@ export default function PromptWorkbenchPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [reloadKey, setReloadKey] = useState(0)
-  const [view, setView] = useState({ status: 'loading', prompt: null, selectedVersionId: null, history: [], result: null, error: null })
+  const [view, setView] = useState({ status: 'loading', prompt: null, selectedVersionId: null, history: [], result: null, historyError: null, error: null })
   const [draft, setDraft] = useState('')
   const [testCases, setTestCases] = useState([createEvaluationCase([])])
   const [selectedSuiteId, setSelectedSuiteId] = useState('')
@@ -38,7 +37,7 @@ export default function PromptWorkbenchPage() {
   const [action, setAction] = useState(null)
   const [editingMeta, setEditingMeta] = useState(false)
   const [meta, setMeta] = useState({ name: '', description: '' })
-  const { suites } = useTestSuites()
+  const { suites, loading: suitesLoading, error: suitesError } = useTestSuites()
 
   useEffect(() => {
     let active = true
@@ -47,11 +46,12 @@ export default function PromptWorkbenchPage() {
         const versions = [...(prompt.versions || [])].sort(byVersion)
         const selected = versions.at(-1) || null
         let history = []
+        let historyError = null
         if (selected) {
-          try { history = await api.tests.history(selected.id) } catch { history = [] }
+          try { history = await api.tests.history(selected.id) } catch (error) { historyError = error }
         }
         if (!active) return
-        setView({ status: 'ready', prompt: { ...prompt, versions }, selectedVersionId: selected?.id ?? null, history, result: history[0] || null, error: null })
+        setView({ status: 'ready', prompt: { ...prompt, versions }, selectedVersionId: selected?.id ?? null, history, historyError, result: history[0] || null, error: null })
         setDraft(selected?.content || '')
         setMeta({ name: prompt.name, description: prompt.description || '' })
       })
@@ -63,7 +63,7 @@ export default function PromptWorkbenchPage() {
 
   const selectedVersion = view.prompt?.versions?.find((version) => Number(version.id) === Number(view.selectedVersionId))
   const variables = useMemo(() => extractVariables(draft), [draft])
-  const isDirty = Boolean(selectedVersion && selectedVersion.content !== draft)
+  const isDirty = draft !== (selectedVersion?.content || '')
   const selectedSuite = suites.find((suite) => Number(suite.id) === Number(selectedSuiteId))
 
   const chooseSuite = (suiteId) => {
@@ -78,27 +78,29 @@ export default function PromptWorkbenchPage() {
   }
 
   const selectVersion = async (versionId) => {
+    if (action) return
+    if (isDirty && !window.confirm('当前模板尚未保存，切换版本会丢弃修改。继续切换？')) return
     const numericId = Number(versionId)
     const version = view.prompt.versions.find((item) => Number(item.id) === numericId)
     setDraft(version?.content || '')
-    setView((current) => ({ ...current, selectedVersionId: numericId, history: [], result: null }))
+    setView((current) => ({ ...current, selectedVersionId: numericId, history: [], result: null, historyError: null }))
     try {
       const history = await api.tests.history(numericId)
       setView((current) => current.selectedVersionId === numericId
         ? { ...current, history, result: history[0] || null }
         : current)
     } catch (error) {
-      toast.error(errorMessage(error, '历史记录未能载入'))
+      setView((current) => current.selectedVersionId === numericId ? { ...current, historyError: error } : current)
     }
   }
 
   const createVersion = async () => {
-    if (!draft.trim() || !isDirty) return
+    if (action || !draft.trim() || !isDirty) return
     setAction('saving-version')
     try {
       const version = await api.prompts.createVersion(id, draft)
       const versions = [...view.prompt.versions, version].sort(byVersion)
-      setView((current) => ({ ...current, prompt: { ...current.prompt, versions }, selectedVersionId: version.id, history: [], result: null }))
+      setView((current) => ({ ...current, prompt: { ...current.prompt, versions }, selectedVersionId: version.id, history: [], result: null, historyError: null }))
       toast.success(`V${version.versionNumber} 已保存`)
     } catch (error) {
       toast.error(errorMessage(error, '版本保存失败'))
@@ -108,6 +110,7 @@ export default function PromptWorkbenchPage() {
   }
 
   const saveMetadata = async () => {
+    if (action) return
     setAction('saving-meta')
     try {
       const updated = await api.prompts.update(id, meta)
@@ -139,19 +142,21 @@ export default function PromptWorkbenchPage() {
       toast.error('先把草稿保存为新版本，再运行测试')
       return
     }
-    if (!view.selectedVersionId) return
+    if (action || !view.selectedVersionId || !modelName.trim()) return
+    const runningVersionId = Number(view.selectedVersionId)
     setAction('running')
     try {
       const result = await api.tests.run({
-        promptVersionId: Number(view.selectedVersionId),
+        promptVersionId: runningVersionId,
         aiProvider: provider,
         modelName,
         ...(selectedSuiteId
           ? { testSuiteId: Number(selectedSuiteId) }
           : { testCases }),
       })
-      setView((current) => ({ ...current, result, history: [result, ...current.history.filter((item) => item.id !== result.id)] }))
-      toast.success(result.status === 'COMPLETED' ? '全部用例与断言通过' : '运行完成，请检查失败证据')
+      setView((current) => Number(current.selectedVersionId) === runningVersionId ? { ...current, result, history: [result, ...current.history.filter((item) => item.id !== result.id)] } : current)
+      if (result.status === 'COMPLETED') toast.success('测试完成')
+      else toast.error('部分或全部用例失败，请查看结果')
     } catch (error) {
       toast.error(errorMessage(error, '测试运行失败'))
     } finally {
@@ -184,20 +189,20 @@ export default function PromptWorkbenchPage() {
           <span className="eyebrow">Prompt / P-{String(view.prompt.id).padStart(3, '0')}</span>
           {editingMeta ? (
             <div className="meta-editor">
-              <input value={meta.name} onChange={(event) => setMeta((current) => ({ ...current, name: event.target.value }))} />
-              <textarea rows="2" value={meta.description} onChange={(event) => setMeta((current) => ({ ...current, description: event.target.value }))} />
-              <div><button className="button button-primary button-compact" disabled={action === 'saving-meta'} onClick={saveMetadata} type="button">保存信息</button><button className="button button-ghost button-compact" onClick={() => setEditingMeta(false)} type="button">取消</button></div>
+              <input aria-label="Prompt 名称" maxLength="255" disabled={Boolean(action)} value={meta.name} onChange={(event) => setMeta((current) => ({ ...current, name: event.target.value }))} />
+              <textarea aria-label="使用说明" maxLength="1000" disabled={Boolean(action)} rows="2" value={meta.description} onChange={(event) => setMeta((current) => ({ ...current, description: event.target.value }))} />
+              <div><button className="button button-primary button-compact" disabled={Boolean(action) || !meta.name.trim()} onClick={saveMetadata} type="button">保存信息</button><button className="button button-ghost button-compact" disabled={Boolean(action)} onClick={() => { setEditingMeta(false); setMeta({ name: view.prompt.name, description: view.prompt.description || '' }) }} type="button">取消</button></div>
             </div>
           ) : (
             <><h1>{view.prompt.name}</h1><p>{view.prompt.description || '尚未补充用途说明与交接上下文。'}</p></>
           )}
         </div>
         <div className="heading-actions">
-          <button className="icon-button" aria-label="编辑 Prompt 信息" onClick={() => setEditingMeta(true)} type="button"><Pencil size={17} /></button>
-          <Link className={`button button-secondary button-compact ${view.prompt.versions.length < 2 ? 'is-disabled' : ''}`} aria-disabled={view.prompt.versions.length < 2} to={view.prompt.versions.length < 2 ? '#' : `/prompt/${id}/compare`}>
+          <button className="icon-button" aria-label="编辑 Prompt 信息" disabled={Boolean(action)} onClick={() => setEditingMeta(true)} type="button"><Pencil size={17} /></button>
+          <Link className={`button button-secondary button-compact ${(view.prompt.versions.length < 2 || action) ? 'is-disabled' : ''}`} aria-disabled={view.prompt.versions.length < 2 || Boolean(action)} tabIndex={view.prompt.versions.length < 2 || action ? -1 : undefined} to={view.prompt.versions.length < 2 ? '#' : `/prompt/${id}/compare`}>
             <GitCompareArrows size={16} /> 对比版本
           </Link>
-          <button className="button button-danger button-compact" disabled={action === 'deleting'} onClick={removePrompt} type="button"><Trash2 size={15} /> 删除</button>
+          <button className="button button-danger button-compact" disabled={Boolean(action)} onClick={removePrompt} type="button"><Trash2 size={15} /> 删除</button>
         </div>
       </header>
 
@@ -205,55 +210,53 @@ export default function PromptWorkbenchPage() {
         <div className="workbench-primary">
           <section className="panel template-panel">
             <header className="section-heading editor-heading">
-              <div><span className="eyebrow"><Braces size={13} /> Template</span><h2>版本草稿</h2></div>
+              <div><h2>Prompt 模板</h2></div>
               <div className="heading-actions">
-                <label className="select-label"><span>基线</span><select value={view.selectedVersionId || ''} onChange={(event) => selectVersion(event.target.value)}>{view.prompt.versions.map((version) => <option key={version.id} value={version.id}>V{version.versionNumber}</option>)}</select></label>
-                <button className="button button-primary button-compact" disabled={!isDirty || action === 'saving-version'} onClick={createVersion} type="button">
+                <label className="select-label"><span>版本</span><select aria-label="版本" disabled={Boolean(action)} value={view.selectedVersionId || ''} onChange={(event) => selectVersion(event.target.value)}>{view.prompt.versions.map((version) => <option key={version.id} value={version.id}>V{version.versionNumber}</option>)}</select></label>
+                <button className="button button-primary button-compact" disabled={!isDirty || !draft.trim() || Boolean(action)} onClick={createVersion} type="button">
                   {action === 'saving-version' ? <LoaderCircle className="spin" size={15} /> : <Save size={15} />}
                   保存为 V{view.prompt.versions.length + 1}
                 </button>
               </div>
             </header>
-            <textarea className="prompt-editor" value={draft} onChange={(event) => setDraft(event.target.value)} spellCheck="false" />
-            <footer><span>{draft.length} chars · {variables.length} variables</span>{isDirty ? <strong>草稿尚未保存，测试已锁定</strong> : <span>与 V{selectedVersion?.versionNumber} 一致</span>}</footer>
+            <textarea aria-label="Prompt 模板" disabled={Boolean(action)} className="prompt-editor" value={draft} onChange={(event) => setDraft(event.target.value)} spellCheck="false" />
+            <footer><span>{draft.length} 字符 · {variables.length} 个变量</span>{isDirty ? <strong>有未保存的修改，请先保存版本</strong> : <span>{selectedVersion ? `已保存为 V${selectedVersion.versionNumber}` : '填写模板并保存第一个版本'}</span>}</footer>
           </section>
 
           <section className="panel test-config-panel">
             <header className="section-heading">
-              <div><span className="eyebrow">Test matrix</span><h2>测试用例</h2><p>{selectedSuite ? `复用「${selectedSuite.name}」；修改后自动切换为临时矩阵。` : '每个用例独立执行；失败不会抹掉其他结果。'}</p></div>
-              <div className="model-row compact-model-row">
-                <label><span>供应商</span><select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></label>
-                <label><span>模型</span><input value={modelName} onChange={(event) => setModelName(event.target.value)} /></label>
-              </div>
+              <div><h2>测试用例</h2><p>{selectedSuite ? `复用「${selectedSuite.name}」；修改后自动切换为临时用例。` : '设置变量和断言后运行当前版本。'}</p></div>
             </header>
-            <SuiteSourcePicker suites={suites} value={selectedSuiteId} onChange={chooseSuite} />
-            <TestCaseEditor variables={variables} cases={testCases} onChange={updateCases} />
-            <button className="button button-primary run-button" disabled={action === 'running' || isDirty} onClick={runTest} type="button">
+            <fieldset disabled={Boolean(action)}>
+              <ModelFields provider={provider} modelName={modelName} onProviderChange={setProvider} onModelChange={setModelName} disabled={Boolean(action)} />
+              <SuiteSourcePicker loading={suitesLoading} error={suitesError} suites={suites} value={selectedSuiteId} onChange={chooseSuite} />
+              <TestCaseEditor variables={variables} cases={testCases} onChange={updateCases} />
+            </fieldset>
+            <button className="button button-primary run-button" disabled={Boolean(action) || isDirty || !view.selectedVersionId || !modelName.trim()} onClick={runTest} type="button">
               {action === 'running' ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-              {action === 'running' ? '正在执行用例' : `运行 V${selectedVersion?.versionNumber} · ${testCases.length} 个用例`}
+              {action === 'running' ? '正在执行用例' : selectedVersion ? `运行 V${selectedVersion.versionNumber} · ${testCases.length} 个用例` : '请先保存版本'}
             </button>
           </section>
         </div>
 
-        <aside className="workbench-aside">
-          <section className="panel history-panel">
-            <header className="section-heading"><div><span className="eyebrow">Run history</span><h2>延迟轨迹</h2></div><StatusBadge status={view.result?.status || 'ready'} /></header>
-            <Sparkline values={[...view.history].reverse().slice(-10).map((run) => run.metrics?.averageResponseTimeMs)} label="最近十次运行的平均延迟" />
-            <div className="history-list">
-              {view.history.length === 0 ? <p>运行 V{selectedVersion?.versionNumber} 后生成第一条证据。</p> : view.history.map((run) => (
-                <button className={view.result?.id === run.id ? 'is-active' : ''} key={run.id} onClick={() => setView((current) => ({ ...current, result: run }))} type="button">
-                  <span><StatusBadge status={run.status} /><b>RUN {run.id}</b></span>
-                  <time>{formatDateTime(run.startedAt || run.executedAt)}</time>
-                  <strong>{formatDuration(run.metrics?.averageResponseTimeMs)}</strong>
-                  <small>A {Math.round((run.metrics?.assertionPassRate || 0) * 100)}% · Q {formatNumber(run.metrics?.averageQualityScore, 2)}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        </aside>
       </div>
-
-      <ResultPanel run={view.result} onExport={exportCsv} title={`V${selectedVersion?.versionNumber} 运行证据`} />
+      <ResultPanel run={view.result} onExport={exportCsv} title={`V${selectedVersion?.versionNumber} 测试结果`} />
+      <aside className="workbench-aside">
+        <details className="panel history-panel">
+          <summary>运行历史（{view.historyError ? '加载失败' : view.history.length}）</summary>
+          {view.historyError ? <InlineError title="运行历史加载失败" message={errorMessage(view.historyError)} onRetry={() => selectVersion(view.selectedVersionId)} /> : null}
+          <div className="history-list">
+            {view.history.length === 0 && !view.historyError ? <p>当前版本暂无运行记录。</p> : view.history.map((run) => (
+              <button className={view.result?.id === run.id ? 'is-active' : ''} key={run.id} onClick={() => setView((current) => ({ ...current, result: run }))} type="button">
+                <span><StatusBadge status={run.status} /><b>RUN {run.id}</b></span>
+                <time>{formatDateTime(run.startedAt || run.executedAt)}</time>
+                <strong>{formatDuration(run.metrics?.averageResponseTimeMs)}</strong>
+                <small>A {Math.round((run.metrics?.assertionPassRate || 0) * 100)}% · Q {formatNumber(run.metrics?.averageQualityScore, 2)}</small>
+              </button>
+            ))}
+          </div>
+        </details>
+      </aside>
     </div>
   )
 }

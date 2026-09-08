@@ -27,7 +27,7 @@ export default function ResultPanel({ run, onExport, title = '运行结果' }) {
     <section className="result-panel run-trace">
       <header className="section-heading result-heading">
         <div>
-          <span className="eyebrow">Evidence / {run.id}</span>
+          <span className="eyebrow">运行 {run.id}</span>
           <h2>{title}</h2>
         </div>
         <div className="heading-actions">
@@ -41,9 +41,9 @@ export default function ResultPanel({ run, onExport, title = '运行结果' }) {
       </header>
 
       <div className="metric-grid metric-grid-results">
-        <MetricTile label="断言通过率" value={`${Math.round((metrics.assertionPassRate || 0) * 100)}%`} detail={assertionDetail} tone={metrics.failedAssertions ? 'coral' : 'cyan'} />
+        <MetricTile label="断言通过率" value={metrics.totalAssertions ? `${Math.round((metrics.assertionPassRate || 0) * 100)}%` : '—'} detail={assertionDetail} tone={metrics.failedAssertions ? 'coral' : 'cyan'} />
         <MetricTile label="平均质量" value={formatNumber(metrics.averageQualityScore, 2)} detail={qualityDetail} tone="blue" />
-        <MetricTile label="平均延迟" value={formatDuration(metrics.averageResponseTimeMs)} detail="完成用例" />
+        <MetricTile label="平均延迟" value={formatDuration(metrics.averageResponseTimeMs)} detail="已生成响应的用例" />
         <MetricTile label="总 Tokens" value={formatNumber(metrics.totalTokens, 0)} detail={formatCost(metrics.totalCostUsd)} />
         <MetricTile label="隐私发现" value={metrics.totalPrivacyFindings || 0} detail={`风险 ${formatNumber(metrics.averagePrivacyRiskScore, 2)}`} tone={metrics.totalPrivacyFindings ? 'coral' : 'cyan'} />
       </div>
@@ -53,7 +53,6 @@ export default function ResultPanel({ run, onExport, title = '运行结果' }) {
           const privacy = privacyOf(result)
           return (
             <article className="result-case" key={result.id ?? `${run.id}-${index}`}>
-              <div className="trace-node" aria-hidden="true" />
               <header>
                 <span>{result.caseName || `CASE ${String(index + 1).padStart(2, '0')}`}</span>
                 <StatusBadge status={result.status} />

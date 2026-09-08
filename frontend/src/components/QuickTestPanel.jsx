@@ -1,4 +1,5 @@
-import { History, LoaderCircle, Play, RotateCcw, Sparkles } from 'lucide-react'
+import ModelFields from './ModelFields.jsx'
+import { History, LoaderCircle, Play, RotateCcw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api.js'
@@ -15,7 +16,8 @@ const DEFAULT_PROMPT = '你是客服质检员。针对 {{question}} 给出清晰
 function loadHistory() {
   try {
     const value = sessionStorage.getItem(HISTORY_KEY)
-    return value ? JSON.parse(value) : []
+    const parsed = value ? JSON.parse(value) : []
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item === 'object' && item.id).slice(0, 6) : []
   } catch {
     return []
   }
@@ -25,7 +27,7 @@ function saveHistory(history) {
   try {
     sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 6)))
   } catch {
-    // 会话存储不可用不影响当前快速试验。
+    // 会话存储不可用不影响当前快速测试。
   }
 }
 
@@ -35,7 +37,7 @@ export default function QuickTestPanel() {
     ...createEvaluationCase(['question']),
     name: '退款等待',
     variables: { question: '客户已经等待退款五天，应该如何回复？' },
-    assertions: [{ type: 'CONTAINS', value: '[MOCK]' }],
+    assertions: [],
   }])
   const [provider, setProvider] = useState('openai')
   const [modelName, setModelName] = useState('gpt-4o-mini')
@@ -47,6 +49,10 @@ export default function QuickTestPanel() {
   const run = async () => {
     if (!promptContent.trim()) {
       toast.error('先填写 Prompt 内容')
+      return
+    }
+    if (running || !modelName.trim()) {
+      if (!modelName.trim()) toast.error('请填写所选供应商的模型名称')
       return
     }
     setRunning(true)
@@ -67,9 +73,10 @@ export default function QuickTestPanel() {
       const nextHistory = [summary, ...history].slice(0, 6)
       setHistory(nextHistory)
       saveHistory(nextHistory)
-      toast.success('快速试验完成')
+      if (nextResult.status === 'COMPLETED') toast.success('快速测试完成')
+      else toast.error('部分或全部用例失败，请查看结果')
     } catch (error) {
-      toast.error(errorMessage(error, '快速试验未完成'))
+      toast.error(errorMessage(error, '快速测试未完成'))
     } finally {
       setRunning(false)
     }
@@ -82,34 +89,30 @@ export default function QuickTestPanel() {
   }
 
   return (
-    <section className="quick-lab">
+    <section className="quick-lab" id="quick-test-panel">
       <header className="section-heading">
         <div>
-          <span className="eyebrow"><Sparkles size={13} /> Scratch run</span>
-          <h2>快速试验台</h2>
-          <p>不创建版本，先验证模板变量、输出形态与自动判定。</p>
+          <h2>快速测试</h2>
+          <p>不创建版本，先验证模板变量、输出形态与断言。</p>
         </div>
-        <button className="button button-ghost button-compact" onClick={reset} type="button">
+        <button className="button button-ghost button-compact" disabled={running} onClick={reset} type="button">
           <RotateCcw size={15} /> 重置
         </button>
       </header>
 
       <div className="quick-grid">
-        <div className="editor-stack">
+        <fieldset className="editor-stack" disabled={running}>
           <label className="field-group">
             <span>Prompt 草稿</span>
             <textarea rows="8" value={promptContent} onChange={(event) => setPromptContent(event.target.value)} />
           </label>
-          <div className="model-row">
-            <label><span>供应商</span><select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></label>
-            <label><span>模型</span><input value={modelName} onChange={(event) => setModelName(event.target.value)} /></label>
-          </div>
+          <ModelFields provider={provider} modelName={modelName} onProviderChange={setProvider} onModelChange={setModelName} disabled={running} />
           <TestCaseEditor variables={variables} cases={testCases} onChange={setTestCases} maxCases={6} />
-          <button className="button button-primary" disabled={running} onClick={run} type="button">
+          <button className="button button-primary" disabled={running || !modelName.trim() || !promptContent.trim()} onClick={run} type="button">
             {running ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
             {running ? '运行中' : `运行 ${testCases.length} 个用例`}
           </button>
-        </div>
+        </fieldset>
 
         <aside className="quick-history">
           <h3><History size={16} /> 当前会话</h3>
@@ -122,7 +125,7 @@ export default function QuickTestPanel() {
           ))}
         </aside>
       </div>
-      <ResultPanel run={result} title="快速试验结果" />
+      <ResultPanel run={result} title="快速测试结果" />
     </section>
   )
 }

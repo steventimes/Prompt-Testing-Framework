@@ -65,7 +65,7 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
           <article className="test-case" key={`case-${index}`}>
             <header>
               <label className="case-name">
-                <span>CASE {String(index + 1).padStart(2, '0')}</span>
+                <span>用例 {index + 1}</span>
                 <input
                   aria-label={`用例 ${index + 1} 名称`}
                   value={testCase.name}
@@ -88,7 +88,7 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
                 {variables.map((variable) => (
                   <label key={variable}>
                     <span>{variable}</span>
-                    <input
+                    <textarea aria-label={variable} rows="2"
                       value={testCase.variables[variable] ?? ''}
                       onChange={(event) => updateVariable(index, variable, event.target.value)}
                       placeholder={`填写 ${variable}`}
@@ -100,7 +100,7 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
 
             <section className="assertion-editor">
               <header>
-                <div><span>断言信号</span><small>{testCase.assertions.length || '未设置自动判定'}</small></div>
+                <div><span>断言</span><small>{testCase.assertions.length || '未设置自动判定'}</small></div>
                 <button className="text-action assertion-add" onClick={() => addAssertion(index)} type="button">
                   <Plus size={13} /> 添加断言
                 </button>
@@ -109,7 +109,6 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
                 const metadata = ASSERTION_TYPES.find((item) => item.value === rule.type) || ASSERTION_TYPES[0]
                 return (
                   <div className="assertion-rule" key={`${index}-assertion-${assertionIndex}`}>
-                    <i aria-hidden="true" />
                     <select
                       aria-label={`用例 ${index + 1} 断言 ${assertionIndex + 1} 类型`}
                       value={rule.type}
@@ -132,7 +131,7 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
                     </select>
                     {metadata.valueKind === 'text' ? (
                       <input
-                        aria-label={`用例 ${index + 1} 断言值`}
+                        aria-label={`用例 ${index + 1} 断言 ${assertionIndex + 1} 值`}
                         value={rule.value ?? ''}
                         onChange={(event) => updateAssertion(index, assertionIndex, 'value', event.target.value)}
                         placeholder={metadata.placeholder}
@@ -140,7 +139,7 @@ export default function TestCaseEditor({ variables, cases, onChange, maxCases = 
                     ) : null}
                     {metadata.valueKind === 'number' ? (
                       <input
-                        aria-label={`用例 ${index + 1} 断言阈值`}
+                        aria-label={`用例 ${index + 1} 断言 ${assertionIndex + 1} 阈值`}
                         min="0"
                         step="any"
                         type="number"

@@ -27,10 +27,10 @@ public class MetricsService {
         // 聚合指标必须覆盖全部已执行用例；任一证据缺失就保留为未知。
         Double avgResponseTime = hasCompleteResponseTimeEvidence(executedResults)
                 ? executedResults.stream()
-                .map(TestResult::getResponseTimeMs)
-                .mapToInt(Integer::intValue)
-                .average()
-                .orElseThrow()
+                        .map(TestResult::getResponseTimeMs)
+                        .mapToInt(Integer::intValue)
+                        .average()
+                        .orElseThrow()
                 : null;
 
         List<Double> qualityScores = executedResults.stream()
@@ -49,16 +49,16 @@ public class MetricsService {
         // Token 总数同样要求完整 usage 证据，不能用部分求和伪装成真实总量。
         Integer totalTokens = hasCompleteTokenEvidence(executedResults)
                 ? executedResults.stream()
-                .map(TestResult::getTokenCount)
-                .mapToInt(Integer::intValue)
-                .sum()
+                        .map(TestResult::getTokenCount)
+                        .mapToInt(Integer::intValue)
+                        .sum()
                 : null;
 
         Double totalCost = hasCompleteCostEvidence(executedResults)
                 ? executedResults.stream()
-                .map(TestResult::getCostUsd)
-                .map(BigDecimal::doubleValue)
-                .reduce(0.0, Double::sum)
+                        .map(TestResult::getCostUsd)
+                        .map(BigDecimal::doubleValue)
+                        .reduce(0.0, Double::sum)
                 : null;
 
         double averagePrivacyRisk = executedResults.stream()

@@ -41,6 +41,14 @@ export function normalizeEvaluationCases(cases = [], variables = []) {
   })
 }
 
+// Saving a suite must remove variables explicitly removed from its schema.
+export function projectEvaluationVariables(cases, variables) {
+  return normalizeEvaluationCases(cases, variables).map((testCase) => ({
+    ...testCase,
+    variables: Object.fromEntries(variables.map((name) => [name, testCase.variables[name] ?? ''])),
+  }))
+}
+
 function evidence(type, passed, expected, actual, message) {
   return { type, passed, expected: textValue(expected), actual: displayActual(actual), message }
 }
